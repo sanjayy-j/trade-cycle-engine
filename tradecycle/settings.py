@@ -56,8 +56,12 @@ WSGI_APPLICATION = 'tradecycle.wsgi.application'
 
 DATABASES = {
     'default': {
-        'ENGINE': 'django.db.backends.sqlite3',
-        'NAME': BASE_DIR / 'db.sqlite3',
+        'ENGINE': 'django.db.backends.postgresql',
+        'NAME': 'trade_cycle_engine',
+        'USER': 'postgres',
+        'PASSWORD': 'Sanjay031106',
+        'HOST': 'localhost',
+        'PORT': '5432',
     }
 }
 
