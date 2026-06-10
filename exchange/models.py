@@ -35,3 +35,28 @@ class Item(models.Model):
     def __str__(self):
         return self.name
 
+class Want(models.Model):
+    user = models.ForeignKey(
+        User,
+        on_delete=models.CASCADE
+    )
+
+    item = models.ForeignKey(
+        Item,
+        on_delete=models.CASCADE
+    )
+
+    created_at = models.DateTimeField(
+        auto_now_add=True
+    )
+
+    class Meta:
+        constraints = [
+            models.UniqueConstraint(
+                fields=["user", "item"],
+                name="unique_user_item_want"
+            )
+        ]
+
+    def __str__(self):
+        return f"{self.user.username} wants {self.item.name}"
