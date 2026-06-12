@@ -24,12 +24,13 @@ class Item(models.Model):
 
     owner = models.ForeignKey(
         User,
-        on_delete=models.CASCADE
+        on_delete=models.CASCADE,
+        related_name="items",
     )
 
     name = models.CharField(max_length=100)
 
-    description = models.TextField()
+    description = models.TextField(blank=True)
 
     status = models.CharField(
         max_length=20,
@@ -37,9 +38,8 @@ class Item(models.Model):
         default=Status.AVAILABLE
     )
 
-    created_at = models.DateTimeField(
-        auto_now_add=True
-    )
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
 
     def __str__(self):
         return self.name
