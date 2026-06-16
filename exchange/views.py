@@ -9,7 +9,7 @@ from rest_framework.decorators import (
 )
 
 from .permissions import IsAdminRole, IsOwnerOrAdmin
-from .models import Item
+from .models import Item, Want
 from .serializers import (
     ItemSerializer,
     WantSerializer, 
@@ -142,9 +142,10 @@ class ItemDetailView(APIView):
         item.delete()
 
         return Response(
-            {"message": "Item deleted successfully"},
             status=status.HTTP_204_NO_CONTENT
         )
+    
+
 class WantListCreateView(APIView):
     permission_classes = [IsAuthenticated]
 
@@ -182,5 +183,75 @@ class WantListCreateView(APIView):
             serializer.errors,
             status=status.HTTP_400_BAD_REQUEST
         )    
+    
+    
+class MatchListView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        results = []
+
+        my_items = Item.objects.filter(
+            owner=request.user
+        )
+
+        for item in my_items:
+            wants = Want.objects.filter(
+                item = item
+            )
+
+            interested_users = [
+                want.user.username
+                for want in wants
+            ]
+        
+            results.append({
+                "item": item.name,
+                "interested_users": interested_users,
+            })
+
+        return Response(results)
+
+class DirectTradeView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        results = []
+        seen = set()
+
+        my_items = Item.objects.filter(
+            owner=request.user
+        )
+
+        my_wants = Want.objects.filter(
+            user=request.user
+        )
+
+        for want in my_wants:
+            target_item = want.item
+            other_user = target_item.owner
+
+            matching_wants = Want.objects.filter(
+                user=other_user,
+                item__in=my_items
+            )
+
+            for match in matching_wants:
+                trade_key = (
+                    other_user.id,
+                    match.item.id,
+                    target_item.id,
+                )
+
+                if trade_key not in seen:
+                    seen.add(trade_key)
+
+                    results.append({
+                        "with_user": other_user.username,
+                        "your_item": match.item.name,
+                        "their_item": target_item.name,
+                    })
+
+        return Response(results)
 
 

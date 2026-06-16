@@ -4,7 +4,9 @@ from .views import (
     admin_only,
     ItemListCreateView,
     ItemDetailView,
-    WantListCreateView
+    WantListCreateView,
+    MatchListView,
+    DirectTradeView,
 )
 
 urlpatterns = [
@@ -27,5 +29,17 @@ urlpatterns = [
         "wants/",
         WantListCreateView.as_view(),
         name="want-list-create",
+    ),
+
+    path(
+        "matches/",
+        MatchListView.as_view(),
+        name="match-list",
+    ),
+
+    path(
+        "trades/direct/",
+        DirectTradeView.as_view(),
+        name="direct-trades",
     )
 ]
