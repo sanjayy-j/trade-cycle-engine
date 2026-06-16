@@ -7,6 +7,7 @@ from .views import (
     WantListCreateView,
     MatchListView,
     DirectTradeView,
+    TradeCycleView,
 )
 
 urlpatterns = [
@@ -41,5 +42,11 @@ urlpatterns = [
         "trades/direct/",
         DirectTradeView.as_view(),
         name="direct-trades",
-    )
+    ),
+
+    path(
+        "trades/cycles/",
+        TradeCycleView.as_view(),
+        name="trade-cycles",
+    ),
 ]

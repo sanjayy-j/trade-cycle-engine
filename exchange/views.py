@@ -13,7 +13,12 @@ from .models import Item, Want
 from .serializers import (
     ItemSerializer,
     WantSerializer, 
-)   
+)
+
+from .services import (
+    build_trade_graph,
+    find_three_cycles,
+)
 
 
 @api_view(["GET"])
@@ -255,3 +260,30 @@ class DirectTradeView(APIView):
         return Response(results)
 
 
+class TradeCycleView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        graph = build_trade_graph()
+
+        cycles = find_three_cycles(graph)
+
+        response = []
+
+        for cycle in cycles:
+            response.append({
+                "participants": [
+                    user.username
+                    for user in cycle["participants"]
+                ],
+                "trades": [
+                    {
+                        "giver": trade["giver"].username,
+                        "receiver": trade["receiver"].username,
+                        "item": trade["item"].name,
+                    }
+                    for trade in cycle["trades"]
+                ]
+            })
+
+        return Response(response)
