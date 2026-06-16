@@ -10,7 +10,10 @@ from rest_framework.decorators import (
 
 from .permissions import IsAdminRole, IsOwnerOrAdmin
 from .models import Item
-from .serializers import ItemSerializer
+from .serializers import (
+    ItemSerializer,
+    WantSerializer, 
+)   
 
 
 @api_view(["GET"])
@@ -142,4 +145,42 @@ class ItemDetailView(APIView):
             {"message": "Item deleted successfully"},
             status=status.HTTP_204_NO_CONTENT
         )
-    
+class WantListCreateView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        wants = Want.objects.filter(
+            user=request.user
+        )
+
+        serializer = WantSerializer(
+            wants,
+            many=True
+        )
+
+        return Response(
+            serializer.data
+        )
+
+    def post(self, request):
+        serializer = WantSerializer(
+            data=request.data,
+            context={"request": request}
+        )
+
+        if serializer.is_valid():
+            serializer.save(
+                user=request.user
+            )
+
+            return Response(
+                serializer.data,
+                status=status.HTTP_201_CREATED
+            )
+
+        return Response(
+            serializer.errors,
+            status=status.HTTP_400_BAD_REQUEST
+        )    
+
+

@@ -4,6 +4,7 @@ from .views import (
     admin_only,
     ItemListCreateView,
     ItemDetailView,
+    WantListCreateView
 )
 
 urlpatterns = [
@@ -21,4 +22,10 @@ urlpatterns = [
         ItemDetailView.as_view(),
         name="item-detail",
     ),
+
+    path(
+        "wants/",
+        WantListCreateView.as_view(),
+        name="want-list-create",
+    )
 ]
