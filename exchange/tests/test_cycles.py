@@ -291,3 +291,16 @@ class CycleDetectionTests(TestCase):
             edge["item"],
             self.item2,
         )
+
+    def test_self_loop_not_added_to_graph(self):
+        Want.objects.create(
+            user=self.user1,
+            item=self.item1,
+        )
+
+        graph = build_trade_graph()
+
+        self.assertNotIn(
+            self.user1.id,
+            graph,
+        )
