@@ -17,7 +17,7 @@ from .serializers import (
 
 from .services import (
     build_trade_graph,
-    find_three_cycles,
+    find_cycles_for_user,
 )
 
 
@@ -266,24 +266,45 @@ class TradeCycleView(APIView):
     def get(self, request):
         graph = build_trade_graph()
 
-        cycles = find_three_cycles(graph)
+        cycles = find_cycles_for_user(
+            graph,
+            request.user.id,
+            max_depth=5,
+        )
 
         response = []
 
         for cycle in cycles:
             response.append({
+                "cycle_length":
+                    cycle["cycle_length"],
+
+                "summary":
+                    f"{cycle['cycle_length']}-way trade cycle found",
+
                 "participants": [
                     user.username
-                    for user in cycle["participants"]
+                    for user
+                    in cycle["participants"]
                 ],
+
                 "trades": [
                     {
-                        "giver": trade["giver"].username,
-                        "receiver": trade["receiver"].username,
-                        "item": trade["item"].name,
+                        "giver":
+                            trade["giver"].username,
+
+                        "receiver":
+                            trade["receiver"].username,
+
+                        "item":
+                            trade["item"].name,
                     }
-                    for trade in cycle["trades"]
-                ]
+                    for trade
+                    in cycle["trades"]
+                ],
             })
 
-        return Response(response)
+        return Response(
+            response,
+            status=status.HTTP_200_OK,
+        )
