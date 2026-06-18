@@ -311,23 +311,25 @@ class MatchListView(APIView):
     def get(self, request):
         results = []
 
-        my_items = Item.objects.filter(
-            owner=request.user
+        my_items = (
+            Item.objects
+            .filter(owner=request.user)
+            .prefetch_related(
+                "wanted_by__user"
+            )
         )
 
         for item in my_items:
-            wants = Want.objects.filter(
-                item = item
-            )
-
             interested_users = [
                 want.user.username
-                for want in wants
+                for want
+                in item.wanted_by.all()
             ]
-        
+
             results.append({
                 "item": item.name,
-                "interested_users": interested_users,
+                "interested_users":
+                    interested_users,
             })
 
         return Response(results)
@@ -343,34 +345,49 @@ class DirectTradeView(APIView):
             owner=request.user
         )
 
-        my_wants = Want.objects.filter(
-            user=request.user
+        my_wants = (
+            Want.objects
+            .filter(user=request.user)
+            .select_related('item', 'item__owner')
         )
+
+        all_matching_wants = (
+            Want.objects
+            .filter(item__in=my_items)
+            .select_related('user', 'item')
+        )
+
+        wants_by_user = {}
+        for want in all_matching_wants:
+            if want.user.id not in wants_by_user:
+                wants_by_user[want.user.id] = []
+            wants_by_user[want.user.id].append(want)
 
         for want in my_wants:
             target_item = want.item
             other_user = target_item.owner
 
-            matching_wants = Want.objects.filter(
-                user=other_user,
-                item__in=my_items
-            )
+            if other_user.id in wants_by_user:
+                for match in wants_by_user[
+                    other_user.id
+                ]:
+                    trade_key = (
+                        other_user.id,
+                        match.item.id,
+                        target_item.id,
+                    )
 
-            for match in matching_wants:
-                trade_key = (
-                    other_user.id,
-                    match.item.id,
-                    target_item.id,
-                )
+                    if trade_key not in seen:
+                        seen.add(trade_key)
 
-                if trade_key not in seen:
-                    seen.add(trade_key)
-
-                    results.append({
-                        "with_user": other_user.username,
-                        "your_item": match.item.name,
-                        "their_item": target_item.name,
-                    })
+                        results.append({
+                            "with_user":
+                                other_user.username,
+                            "your_item":
+                                match.item.name,
+                            "their_item":
+                                target_item.name,
+                        })
 
         return Response(results)
 

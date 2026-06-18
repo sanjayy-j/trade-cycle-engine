@@ -1,5 +1,5 @@
-from .models import Item, Want
-from .constants import MAX_CYCLE_LENGTH
+from ..models import Item, Want
+from ..constants import MAX_CYCLE_LENGTH
 
 
 def build_trade_graph():
