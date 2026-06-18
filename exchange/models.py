@@ -1,3 +1,5 @@
+import uuid
+
 from django.db import models
 from django.contrib.auth.models import AbstractUser
 
@@ -28,6 +30,12 @@ class Item(models.Model):
         related_name="items",
     )
 
+    public_id = models.UUIDField(
+        default=uuid.uuid4,
+        unique=True,
+        editable=False,
+    )
+
     name = models.CharField(max_length=100)
 
     description = models.TextField(blank=True)
@@ -47,12 +55,20 @@ class Item(models.Model):
 class Want(models.Model):
     user = models.ForeignKey(
         User,
-        on_delete=models.CASCADE
+        on_delete=models.CASCADE,
+        related_name="wants",
+    )
+
+    public_id = models.UUIDField(
+        default=uuid.uuid4,
+        unique=True,
+        editable=False,
     )
 
     item = models.ForeignKey(
         Item,
-        on_delete=models.CASCADE
+        on_delete=models.CASCADE,
+        related_name="wanted_by",
     )
 
     created_at = models.DateTimeField(

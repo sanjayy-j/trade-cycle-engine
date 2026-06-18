@@ -12,6 +12,7 @@ class ItemSerializer(serializers.ModelSerializer):
 
         fields = [
             "id",
+            "public_id",
             "name",
             "description",
             "status",
@@ -22,6 +23,7 @@ class ItemSerializer(serializers.ModelSerializer):
 
         read_only_fields = [
             "id",
+            "public_id",
             "owner",
             "status",
             "created_at",
@@ -35,6 +37,7 @@ class WantSerializer(serializers.ModelSerializer):
 
         fields = [
             "id",
+            "public_id",
             "user",
             "item",
             "created_at",
@@ -42,6 +45,7 @@ class WantSerializer(serializers.ModelSerializer):
 
         read_only_fields = [
             "id",
+            "public_id",
             "user",
             "created_at",
         ]

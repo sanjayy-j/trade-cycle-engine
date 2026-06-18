@@ -65,15 +65,15 @@ class ItemListCreateView(APIView):
 class ItemDetailView(APIView):
     permission_classes = [IsAuthenticated]
 
-    def get_object(self, id):
+    def get_object(self, public_id):
         try:
-            return Item.objects.get(id=id)
+            return Item.objects.get(public_id=public_id)
 
         except Item.DoesNotExist:
             return None
 
-    def get(self, request, id):
-        item = self.get_object(id)
+    def get(self, request, public_id):
+        item = self.get_object(public_id)
 
         if not item:
             return Response(
@@ -88,8 +88,8 @@ class ItemDetailView(APIView):
             status=status.HTTP_200_OK
         )
 
-    def patch(self, request, id):
-        item = self.get_object(id)
+    def patch(self, request, public_id):
+        item = self.get_object(public_id)
 
         if not item:
             return Response(
@@ -128,8 +128,8 @@ class ItemDetailView(APIView):
             status=status.HTTP_400_BAD_REQUEST
         )
 
-    def delete(self, request, id):
-        item = self.get_object(id)
+    def delete(self, request, public_id):
+        item = self.get_object(public_id)
 
         if not item:
             return Response(
@@ -196,15 +196,15 @@ class WantListCreateView(APIView):
 class WantDetailView(APIView):
     permission_classes = [IsAuthenticated]
 
-    def get_object(self, id):
+    def get_object(self, public_id):
         try:
-            return Want.objects.get(id=id)
+            return Want.objects.get(public_id=public_id)
 
         except Want.DoesNotExist:
             return None
 
-    def get(self, request, id):
-        want = self.get_object(id)
+    def get(self, request, public_id):
+        want = self.get_object(public_id)
 
         if not want:
             return Response(
@@ -231,8 +231,8 @@ class WantDetailView(APIView):
             status=status.HTTP_200_OK
         )
 
-    def patch(self, request, id):
-        want = self.get_object(id)
+    def patch(self, request, public_id):
+        want = self.get_object(public_id)
 
         if not want:
             return Response(
@@ -272,8 +272,8 @@ class WantDetailView(APIView):
             status=status.HTTP_400_BAD_REQUEST
         )
 
-    def delete(self, request, id):
-        want = self.get_object(id)
+    def delete(self, request, public_id):
+        want = self.get_object(public_id)
 
         if not want:
             return Response(

@@ -62,7 +62,7 @@ class ItemApiTests(TestCase):
         )
 
         response = self.client.patch(
-            f"/api/items/{item.id}/",
+            f"/api/items/{item.public_id}/",
             {
                 "description": "Updated",
             },
@@ -88,7 +88,7 @@ class ItemApiTests(TestCase):
         )
 
         response = self.client.delete(
-            f"/api/items/{item.id}/"
+            f"/api/items/{item.public_id}/"
         )
 
         self.assertEqual(
@@ -109,7 +109,7 @@ class ItemApiTests(TestCase):
         )
 
         response = self.client.patch(
-            f"/api/items/{item.id}/",
+            f"/api/items/{item.public_id}/",
             {
                 "description": "Hacked",
             },
@@ -128,7 +128,7 @@ class ItemApiTests(TestCase):
         )
 
         response = self.client.delete(
-            f"/api/items/{item.id}/"
+            f"/api/items/{item.public_id}/"
         )
 
         self.assertEqual(

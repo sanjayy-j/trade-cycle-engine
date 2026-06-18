@@ -112,7 +112,7 @@ class WantApiTests(TestCase):
         )
 
         response = self.client.delete(
-            f"/api/wants/{want.id}/"
+            f"/api/wants/{want.public_id}/"
         )
 
         self.assertEqual(
@@ -133,7 +133,7 @@ class WantApiTests(TestCase):
         )
 
         response = self.client.patch(
-            f"/api/wants/{want.id}/",
+            f"/api/wants/{want.public_id}/",
             {
                 "item": self.item3.id,
             },
@@ -159,7 +159,7 @@ class WantApiTests(TestCase):
         )
 
         response = self.client.patch(
-            f"/api/wants/{want.id}/",
+            f"/api/wants/{want.public_id}/",
             {
                 "item": self.item1.id,
             },
@@ -183,7 +183,7 @@ class WantApiTests(TestCase):
         )
 
         response = self.client.patch(
-            f"/api/wants/{want2.id}/",
+            f"/api/wants/{want2.public_id}/",
             {
                 "item": self.item2.id,
             },

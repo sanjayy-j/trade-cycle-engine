@@ -22,7 +22,7 @@ urlpatterns = [
     ),
 
     path(
-        "items/<int:id>/",
+        "items/<uuid:public_id>/",
         ItemDetailView.as_view(),
         name="item-detail",
     ),
@@ -52,7 +52,7 @@ urlpatterns = [
     ),
 
     path(
-        "wants/<int:id>/",
+        "wants/<uuid:public_id>/",
         WantDetailView.as_view(),
         name="want-detail",
     ),
