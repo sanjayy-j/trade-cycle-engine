@@ -8,6 +8,7 @@ from rest_framework.decorators import (
     permission_classes,
 )
 
+from .pagination import ItemPagination
 from .permissions import IsAdminRole, IsOwnerOrAdmin
 from .models import Item, Want
 from .serializers import (
@@ -43,9 +44,13 @@ class ItemListCreateView(APIView):
     permission_classes = [IsAuthenticated]
 
     def get(self, request):
-        items = Item.objects.all()
-        serializer = ItemSerializer(items, many=True)
-        return Response(serializer.data)
+        items = Item.objects.order_by("created_at")
+
+        paginator = ItemPagination()
+        page = paginator.paginate_queryset(items, request)
+
+        serializer = ItemSerializer(page, many=True)
+        return paginator.get_paginated_response(serializer.data)
 
     def post(self, request):
         serializer = ItemSerializer(data=request.data)
