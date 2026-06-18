@@ -1,5 +1,10 @@
 from rest_framework import serializers
-from .models import Item, Want
+
+from .models import (
+    Item,
+    Want,
+)
+
 
 class ItemSerializer(serializers.ModelSerializer):
     class Meta:
@@ -23,6 +28,7 @@ class ItemSerializer(serializers.ModelSerializer):
             "updated_at",
         ]
 
+
 class WantSerializer(serializers.ModelSerializer):
     class Meta:
         model = Want
@@ -35,6 +41,7 @@ class WantSerializer(serializers.ModelSerializer):
         ]
 
         read_only_fields = [
+            "id",
             "user",
             "created_at",
         ]
@@ -44,7 +51,35 @@ class WantSerializer(serializers.ModelSerializer):
 
         if value.owner == request.user:
             raise serializers.ValidationError(
-                "You already have it 😭"
+                "You cannot want your own item."
             )
-        
+
         return value
+
+    def validate(self, attrs):
+        request = self.context["request"]
+
+        item = attrs.get(
+            "item",
+            getattr(self.instance, "item", None)
+        )
+
+        existing_want = Want.objects.filter(
+            user=request.user,
+            item=item,
+        )
+
+        if self.instance:
+            existing_want = existing_want.exclude(
+                id=self.instance.id
+            )
+
+        if existing_want.exists():
+            raise serializers.ValidationError(
+                {
+                    "item":
+                    "You already want this item."
+                }
+            )
+
+        return attrs

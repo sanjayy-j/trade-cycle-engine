@@ -5,6 +5,7 @@ from .views import (
     ItemListCreateView,
     ItemDetailView,
     WantListCreateView,
+    WantDetailView,
     MatchListView,
     DirectTradeView,
     TradeCycleView,
@@ -48,5 +49,11 @@ urlpatterns = [
         "trades/cycles/",
         TradeCycleView.as_view(),
         name="trade-cycles",
+    ),
+
+    path(
+        "wants/<int:id>/",
+        WantDetailView.as_view(),
+        name="want-detail",
     ),
 ]

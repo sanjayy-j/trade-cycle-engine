@@ -19,6 +19,7 @@ from .services import (
     build_trade_graph,
     find_cycles_for_user,
 )
+from .constants import MAX_CYCLE_LENGTH
 
 
 @api_view(["GET"])
@@ -64,11 +65,17 @@ class ItemListCreateView(APIView):
 class ItemDetailView(APIView):
     permission_classes = [IsAuthenticated]
 
-    def get(self, request, id):
+    def get_object(self, id):
         try:
-            item = Item.objects.get(id=id)
+            return Item.objects.get(id=id)
 
         except Item.DoesNotExist:
+            return None
+
+    def get(self, request, id):
+        item = self.get_object(id)
+
+        if not item:
             return Response(
                 {"error": "Item not found"},
                 status=status.HTTP_404_NOT_FOUND
@@ -79,13 +86,12 @@ class ItemDetailView(APIView):
         return Response(
             serializer.data,
             status=status.HTTP_200_OK
-        ) 
-    
-    def patch(self, request, id):
-        try:
-            item = Item.objects.get(id=id)
+        )
 
-        except Item.DoesNotExist:
+    def patch(self, request, id):
+        item = self.get_object(id)
+
+        if not item:
             return Response(
                 {"error": "Item not found"},
                 status=status.HTTP_404_NOT_FOUND
@@ -96,7 +102,7 @@ class ItemDetailView(APIView):
         if not permission.has_object_permission(
             request,
             self,
-            item
+            item,
         ):
             return Response(
                 {"error": "Forbidden"},
@@ -106,7 +112,7 @@ class ItemDetailView(APIView):
         serializer = ItemSerializer(
             item,
             data=request.data,
-            partial=True
+            partial=True,
         )
 
         if serializer.is_valid():
@@ -121,12 +127,11 @@ class ItemDetailView(APIView):
             serializer.errors,
             status=status.HTTP_400_BAD_REQUEST
         )
-    
-    def delete(self, request, id):
-        try:
-            item = Item.objects.get(id=id)
 
-        except Item.DoesNotExist:
+    def delete(self, request, id):
+        item = self.get_object(id)
+
+        if not item:
             return Response(
                 {"error": "Item not found"},
                 status=status.HTTP_404_NOT_FOUND
@@ -137,7 +142,7 @@ class ItemDetailView(APIView):
         if not permission.has_object_permission(
             request,
             self,
-            item
+            item,
         ):
             return Response(
                 {"error": "Forbidden"},
@@ -149,7 +154,6 @@ class ItemDetailView(APIView):
         return Response(
             status=status.HTTP_204_NO_CONTENT
         )
-    
 
 class WantListCreateView(APIView):
     permission_classes = [IsAuthenticated]
@@ -187,7 +191,113 @@ class WantListCreateView(APIView):
         return Response(
             serializer.errors,
             status=status.HTTP_400_BAD_REQUEST
-        )    
+        )  
+
+class WantDetailView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def get_object(self, id):
+        try:
+            return Want.objects.get(id=id)
+
+        except Want.DoesNotExist:
+            return None
+
+    def get(self, request, id):
+        want = self.get_object(id)
+
+        if not want:
+            return Response(
+                {"error": "Want not found"},
+                status=status.HTTP_404_NOT_FOUND
+            )
+
+        permission = IsOwnerOrAdmin()
+
+        if not permission.has_object_permission(
+            request,
+            self,
+            want,
+        ):
+            return Response(
+                {"error": "Forbidden"},
+                status=status.HTTP_403_FORBIDDEN
+            )
+
+        serializer = WantSerializer(want)
+
+        return Response(
+            serializer.data,
+            status=status.HTTP_200_OK
+        )
+
+    def patch(self, request, id):
+        want = self.get_object(id)
+
+        if not want:
+            return Response(
+                {"error": "Want not found"},
+                status=status.HTTP_404_NOT_FOUND
+            )
+
+        permission = IsOwnerOrAdmin()
+
+        if not permission.has_object_permission(
+            request,
+            self,
+            want,
+        ):
+            return Response(
+                {"error": "Forbidden"},
+                status=status.HTTP_403_FORBIDDEN
+            )
+
+        serializer = WantSerializer(
+            want,
+            data=request.data,
+            partial=True,
+            context={"request": request}
+        )
+
+        if serializer.is_valid():
+            serializer.save()
+
+            return Response(
+                serializer.data,
+                status=status.HTTP_200_OK
+            )
+
+        return Response(
+            serializer.errors,
+            status=status.HTTP_400_BAD_REQUEST
+        )
+
+    def delete(self, request, id):
+        want = self.get_object(id)
+
+        if not want:
+            return Response(
+                {"error": "Want not found"},
+                status=status.HTTP_404_NOT_FOUND
+            )
+
+        permission = IsOwnerOrAdmin()
+
+        if not permission.has_object_permission(
+            request,
+            self,
+            want,
+        ):
+            return Response(
+                {"error": "Forbidden"},
+                status=status.HTTP_403_FORBIDDEN
+            )
+
+        want.delete()
+
+        return Response(
+            status=status.HTTP_204_NO_CONTENT
+        )
     
     
 class MatchListView(APIView):
@@ -269,7 +379,7 @@ class TradeCycleView(APIView):
         cycles = find_cycles_for_user(
             graph,
             request.user.id,
-            max_depth=5,
+            max_depth=MAX_CYCLE_LENGTH,
         )
 
         response = []

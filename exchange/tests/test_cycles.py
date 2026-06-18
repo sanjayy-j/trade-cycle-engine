@@ -1,4 +1,5 @@
 from django.test import TestCase
+from rest_framework.test import APIClient
 
 from exchange.models import (
     User,
@@ -14,6 +15,8 @@ from exchange.services import (
 class CycleDetectionTests(TestCase):
 
     def setUp(self):
+        self.client = APIClient()
+
         self.user1 = User.objects.create_user(
             username="sanjay",
             password="test123"
@@ -303,4 +306,43 @@ class CycleDetectionTests(TestCase):
         self.assertNotIn(
             self.user1.id,
             graph,
+        )
+
+    def test_cycles_endpoint_returns_200(self):
+        Want.objects.create(
+            user=self.user1,
+            item=self.item2,
+        )
+
+        Want.objects.create(
+            user=self.user2,
+            item=self.item3,
+        )
+
+        Want.objects.create(
+            user=self.user3,
+            item=self.item1,
+        )
+
+        self.client.force_authenticate(
+            user=self.user1
+        )
+
+        response = self.client.get(
+            "/api/trades/cycles/"
+        )
+
+        self.assertEqual(
+            response.status_code,
+            200,
+        )
+
+        self.assertEqual(
+            len(response.data),
+            1,
+        )
+
+        self.assertEqual(
+            response.data[0]["cycle_length"],
+            3,
         )

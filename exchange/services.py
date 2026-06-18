@@ -1,4 +1,5 @@
 from .models import Item, Want
+from .constants import MAX_CYCLE_LENGTH
 
 
 def build_trade_graph():
@@ -94,7 +95,7 @@ def build_cycle_response(cycle_edges):
 def find_cycles_for_user(
     graph,
     user_id,
-    max_depth=5,
+    max_depth=MAX_CYCLE_LENGTH,
 ):
     """
     Finds trade cycles involving a specific user.
