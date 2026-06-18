@@ -192,7 +192,7 @@ Current automated test coverage includes:
 * Item API Tests
 * Want API Tests
 
-Total Tests: **19**
+Total Tests: **20**
 
 Run the test suite:
 
