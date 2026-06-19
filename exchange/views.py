@@ -10,15 +10,25 @@ from rest_framework.decorators import (
 
 from .pagination import ItemPagination
 from .permissions import IsAdminRole, IsOwnerOrAdmin
-from .models import Item, Want
+from .models import (
+    Item, 
+    Want,
+    TradeProposal,
+    TradeParticipant,
+    TradeItem,
+)
 from .serializers import (
     ItemSerializer,
     WantSerializer, 
+    TradeProposalSerializer,
+    TradeParticipantSerializer,
+    TradeItemSerializer,
 )
 
 from .services import (
     build_trade_graph,
     find_cycles_for_user,
+    accept_trade_proposal,
 )
 from .constants import MAX_CYCLE_LENGTH
 
@@ -438,5 +448,154 @@ class TradeCycleView(APIView):
 
         return Response(
             response,
+            status=status.HTTP_200_OK,
+        )
+    
+class TradeProposalListView(
+    APIView
+):
+    permission_classes = [
+        IsAuthenticated
+    ]
+
+    def get(
+        self,
+        request,
+    ):
+        proposals = (
+            TradeProposal.objects
+            .prefetch_related(
+                "participants__user",
+                "trade_items__item",
+                "trade_items__giver",
+                "trade_items__receiver",
+            )
+            .order_by(
+                "-created_at"
+            )
+        )
+
+        serializer = (
+            TradeProposalSerializer(
+                proposals,
+                many=True,
+            )
+        )
+
+        return Response(
+            serializer.data,
+            status=status.HTTP_200_OK,
+        )
+    
+class TradeProposalDetailView(
+    APIView
+):
+    permission_classes = [
+        IsAuthenticated
+    ]
+
+    def get(
+        self,
+        request,
+        public_id,
+    ):
+        try:
+            proposal = (
+                TradeProposal.objects
+                .prefetch_related(
+                    "participants__user",
+                    "trade_items__item",
+                    "trade_items__giver",
+                    "trade_items__receiver",
+                )
+                .get(
+                    public_id=public_id
+                )
+            )
+
+        except TradeProposal.DoesNotExist:
+            return Response(
+                {
+                    "error":
+                    "Trade proposal not found"
+                },
+                status=status.HTTP_404_NOT_FOUND,
+            )
+
+        serializer = (
+            TradeProposalSerializer(
+                proposal
+            )
+        )
+
+        return Response(
+            serializer.data,
+            status=status.HTTP_200_OK,
+        )
+    
+    
+class TradeProposalAcceptView(
+    APIView
+):
+    permission_classes = [
+        IsAuthenticated
+    ]
+
+    def post(
+        self,
+        request,
+        public_id,
+    ):
+        try:
+            proposal = (
+                TradeProposal.objects
+                .prefetch_related(
+                    "participants"
+                )
+                .get(
+                    public_id=public_id
+                )
+            )
+
+        except TradeProposal.DoesNotExist:
+            return Response(
+                {
+                    "error":
+                    "Trade proposal not found"
+                },
+                status=status.HTTP_404_NOT_FOUND,
+            )
+
+        participant_exists = (
+            proposal.participants.filter(
+                user=request.user
+            ).exists()
+        )
+
+        if not participant_exists:
+            return Response(
+                {
+                    "error":
+                    "You are not part "
+                    "of this trade"
+                },
+                status=status.HTTP_403_FORBIDDEN,
+            )
+
+        accept_trade_proposal(
+            proposal,
+            request.user,
+        )
+
+        proposal.refresh_from_db()
+
+        serializer = (
+            TradeProposalSerializer(
+                proposal
+            )
+        )
+
+        return Response(
+            serializer.data,
             status=status.HTTP_200_OK,
         )

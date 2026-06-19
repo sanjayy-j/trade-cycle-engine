@@ -3,6 +3,9 @@ from rest_framework import serializers
 from .models import (
     Item,
     Want,
+    TradeProposal,
+    TradeParticipant,
+    TradeItem,
 )
 
 
@@ -87,3 +90,77 @@ class WantSerializer(serializers.ModelSerializer):
             )
 
         return attrs
+    
+class TradeParticipantSerializer(
+    serializers.ModelSerializer
+):
+    username = serializers.CharField(
+        source="user.username",
+        read_only=True,
+    )
+
+    class Meta:
+        model = TradeParticipant
+
+        fields = [
+            "username",
+            "accepted",
+            "accepted_at",
+        ]
+
+class TradeItemSerializer(
+    serializers.ModelSerializer
+):
+    giver = serializers.CharField(
+        source="giver.username",
+        read_only=True,
+    )
+
+    receiver = serializers.CharField(
+        source="receiver.username",
+        read_only=True,
+    )
+
+    item = serializers.CharField(
+        source="item.name",
+        read_only=True,
+    )
+
+    class Meta:
+        model = TradeItem
+
+        fields = [
+            "giver",
+            "receiver",
+            "item",
+        ]
+
+
+class TradeProposalSerializer(
+    serializers.ModelSerializer
+):
+    participants = (
+        TradeParticipantSerializer(
+            many=True,
+            read_only=True,
+        )
+    )
+
+    trade_items = (
+        TradeItemSerializer(
+            many=True,
+            read_only=True,
+        )
+    )
+
+    class Meta:
+        model = TradeProposal
+
+        fields = [
+            "public_id",
+            "status",
+            "created_at",
+            "updated_at",
+            "participants",
+            "trade_items",
+        ]

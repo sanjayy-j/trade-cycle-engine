@@ -214,3 +214,4 @@ class TradeItem(models.Model):
             f"{self.receiver.username} "
             f"({self.item.name})"
         )
+    
