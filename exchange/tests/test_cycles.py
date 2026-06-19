@@ -5,6 +5,9 @@ from exchange.models import (
     User,
     Item,
     Want,
+    TradeCycle,
+    TradeCycleParticipant,
+    TradeCycleTrade,
 )
 
 from exchange.services import (
@@ -345,4 +348,60 @@ class CycleDetectionTests(TestCase):
         self.assertEqual(
             response.data[0]["cycle_length"],
             3,
+        )
+
+    def test_cycles_endpoint_persists_trade_cycle_records(self):
+        Want.objects.create(
+            user=self.user1,
+            item=self.item2,
+        )
+
+        Want.objects.create(
+            user=self.user2,
+            item=self.item3,
+        )
+
+        Want.objects.create(
+            user=self.user3,
+            item=self.item1,
+        )
+
+        self.client.force_authenticate(
+            user=self.user1
+        )
+
+        response = self.client.get(
+            "/api/trades/cycles/"
+        )
+
+        self.assertEqual(
+            response.status_code,
+            200,
+        )
+
+        self.assertEqual(
+            TradeCycle.objects.count(),
+            1,
+        )
+
+        self.assertEqual(
+            TradeCycleParticipant.objects.count(),
+            3,
+        )
+
+        self.assertEqual(
+            TradeCycleTrade.objects.count(),
+            3,
+        )
+
+        cycle = TradeCycle.objects.first()
+
+        self.assertEqual(
+            response.data[0]["public_id"],
+            str(cycle.public_id),
+        )
+
+        self.assertEqual(
+            response.data[0]["summary"],
+            "3-way trade cycle found",
         )

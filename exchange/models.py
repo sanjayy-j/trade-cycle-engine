@@ -1,7 +1,9 @@
 import uuid
+from datetime import timedelta
 
 from django.db import models
 from django.contrib.auth.models import AbstractUser
+from django.utils import timezone
 
 
 class User(AbstractUser):
@@ -215,3 +217,113 @@ class TradeItem(models.Model):
             f"({self.item.name})"
         )
     
+
+class TradeCycle(models.Model):
+
+    public_id = models.UUIDField(
+        default=uuid.uuid4,
+        unique=True,
+        editable=False,
+    )
+
+    active = models.BooleanField(
+        default=True,
+    )
+
+    created_at = models.DateTimeField(
+        auto_now_add=True,
+    )
+
+    def default_cycle_expiry():
+        return timezone.now() + timedelta(hours=24)
+
+    expires_at = models.DateTimeField(
+        default=default_cycle_expiry,
+    )
+
+    def __str__(self):
+        return (
+            f"Trade Cycle "
+            f"{self.public_id}"
+        )
+
+
+class TradeCycleParticipant(models.Model):
+
+    cycle = models.ForeignKey(
+        TradeCycle,
+        on_delete=models.CASCADE,
+        related_name="participants",
+    )
+
+    user = models.ForeignKey(
+        User,
+        on_delete=models.CASCADE,
+        related_name="cycle_participations",
+    )
+
+    class Meta:
+        constraints = [
+            models.UniqueConstraint(
+                fields=[
+                    "cycle",
+                    "user",
+                ],
+                name=(
+                    "unique_user_per_cycle"
+                ),
+            )
+        ]
+
+    def __str__(self):
+        return (
+            f"{self.user.username} "
+            f"in {self.cycle.public_id}"
+        )
+
+
+class TradeCycleTrade(models.Model):
+
+    cycle = models.ForeignKey(
+        TradeCycle,
+        on_delete=models.CASCADE,
+        related_name="trades",
+    )
+
+    giver = models.ForeignKey(
+        User,
+        on_delete=models.CASCADE,
+        related_name="cycle_items_given",
+    )
+
+    receiver = models.ForeignKey(
+        User,
+        on_delete=models.CASCADE,
+        related_name="cycle_items_received",
+    )
+
+    item = models.ForeignKey(
+        Item,
+        on_delete=models.CASCADE,
+        related_name="cycle_records",
+    )
+
+    class Meta:
+        constraints = [
+            models.UniqueConstraint(
+                fields=[
+                    "cycle",
+                    "item",
+                ],
+                name=(
+                    "unique_item_per_cycle"
+                ),
+            )
+        ]
+
+    def __str__(self):
+        return (
+            f"{self.giver.username} -> "
+            f"{self.receiver.username} "
+            f"({self.item.name})"
+        )

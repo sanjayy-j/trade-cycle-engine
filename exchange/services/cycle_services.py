@@ -1,5 +1,6 @@
-from ..models import Item, Want
+from ..models import Item, Want, TradeCycleParticipant, TradeCycleTrade, TradeCycle
 from ..constants import MAX_CYCLE_LENGTH
+from django.db import transaction
 
 
 def build_trade_graph():
@@ -167,3 +168,57 @@ def find_cycles_for_user(
     )
 
     return cycles
+
+
+@transaction.atomic
+def persist_trade_cycles(
+    cycle_responses,
+):
+    """
+    Persists detected trade cycles and their
+    associated participants/trades.
+
+    All writes occur within a single database
+    transaction to prevent partially-created
+    cycles from being stored.
+    """
+
+    created_cycles = []
+
+    for cycle_response in cycle_responses:
+
+        cycle = TradeCycle.objects.create()
+
+        participants = [
+            TradeCycleParticipant(
+                cycle=cycle,
+                user=user,
+            )
+            for user in cycle_response[
+                "participants"
+            ]
+        ]
+
+        TradeCycleParticipant.objects.bulk_create(
+            participants
+        )
+
+        trades = [
+            TradeCycleTrade(
+                cycle=cycle,
+                giver=trade["giver"],
+                receiver=trade["receiver"],
+                item=trade["item"],
+            )
+            for trade in cycle_response[
+                "trades"
+            ]
+        ]
+
+        TradeCycleTrade.objects.bulk_create(
+            trades
+        )
+
+        created_cycles.append(cycle)
+
+    return created_cycles

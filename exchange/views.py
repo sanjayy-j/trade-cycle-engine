@@ -11,6 +11,8 @@ from rest_framework.decorators import (
 from .pagination import ItemPagination
 from .permissions import IsAdminRole, IsOwnerOrAdmin
 from .models import (
+    User,
+    User,
     Item, 
     Want,
     TradeProposal,
@@ -23,12 +25,16 @@ from .serializers import (
     TradeProposalSerializer,
     TradeParticipantSerializer,
     TradeItemSerializer,
+    TradeProposalCreateSerializer,
+    TradeCycleSerializer,
 )
 
 from .services import (
     build_trade_graph,
     find_cycles_for_user,
+    persist_trade_cycles,
     accept_trade_proposal,
+    create_trade_proposal,
 )
 from .constants import MAX_CYCLE_LENGTH
 
@@ -414,40 +420,15 @@ class TradeCycleView(APIView):
             max_depth=MAX_CYCLE_LENGTH,
         )
 
-        response = []
+        persisted_cycles = persist_trade_cycles(cycles)
 
-        for cycle in cycles:
-            response.append({
-                "cycle_length":
-                    cycle["cycle_length"],
-
-                "summary":
-                    f"{cycle['cycle_length']}-way trade cycle found",
-
-                "participants": [
-                    user.username
-                    for user
-                    in cycle["participants"]
-                ],
-
-                "trades": [
-                    {
-                        "giver":
-                            trade["giver"].username,
-
-                        "receiver":
-                            trade["receiver"].username,
-
-                        "item":
-                            trade["item"].name,
-                    }
-                    for trade
-                    in cycle["trades"]
-                ],
-            })
+        serializer = TradeCycleSerializer(
+            persisted_cycles,
+            many=True,
+        )
 
         return Response(
-            response,
+            serializer.data,
             status=status.HTTP_200_OK,
         )
     
@@ -598,4 +579,97 @@ class TradeProposalAcceptView(
         return Response(
             serializer.data,
             status=status.HTTP_200_OK,
+        )
+    
+class TradeProposalCreateView(
+    APIView
+):
+    permission_classes = [
+        IsAuthenticated
+    ]
+
+    def post(
+        self,
+        request,
+    ):
+        serializer = (
+            TradeProposalCreateSerializer(
+                data=request.data
+            )
+        )
+
+        serializer.is_valid(
+            raise_exception=True
+        )
+
+        participant_ids = (
+            serializer.validated_data[
+                "participants"
+            ]
+        )
+
+        trade_data = (
+            serializer.validated_data[
+                "trades"
+            ]
+        )
+
+        participants = list(
+            User.objects.filter(
+                id__in=participant_ids
+            )
+        )
+
+        if (
+            request.user.id
+            not in participant_ids
+        ):
+            return Response(
+                {
+                    "error":
+                    "You must be part of the trade"
+                },
+                status=status.HTTP_403_FORBIDDEN,
+            )
+
+        trades = []
+
+        for trade in trade_data:
+
+            item = Item.objects.get(
+                id=trade["item"]
+            )
+
+            giver = User.objects.get(
+                id=trade["giver"]
+            )
+
+            receiver = User.objects.get(
+                id=trade["receiver"]
+            )
+
+            trades.append(
+                {
+                    "item": item,
+                    "giver": giver,
+                    "receiver": receiver,
+                }
+            )
+
+        proposal = (
+            create_trade_proposal(
+                participants,
+                trades,
+            )
+        )
+
+        response_serializer = (
+            TradeProposalSerializer(
+                proposal
+            )
+        )
+
+        return Response(
+            response_serializer.data,
+            status=status.HTTP_201_CREATED,
         )

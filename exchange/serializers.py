@@ -2,10 +2,13 @@ from rest_framework import serializers
 
 from .models import (
     Item,
+    TradeCycleParticipant,
+    TradeCycleTrade,
     Want,
     TradeProposal,
     TradeParticipant,
     TradeItem,
+    TradeCycle,
 )
 
 
@@ -164,3 +167,102 @@ class TradeProposalSerializer(
             "participants",
             "trade_items",
         ]
+
+
+class TradeProposalCreateSerializer(
+    serializers.Serializer
+):
+    participants = serializers.ListField(
+        child=serializers.IntegerField(),
+        allow_empty=False,
+    )
+
+    trades = serializers.ListField(
+        child=serializers.DictField(),
+        allow_empty=False,
+    )
+
+
+class TradeCycleParticipantSerializer(
+    serializers.ModelSerializer
+):
+    username = serializers.CharField(
+        source="user.username",
+        read_only=True,
+    )
+
+    class Meta:
+        model = TradeCycleParticipant
+
+        fields = [
+            "username",
+        ]
+
+
+class TradeCycleTradeSerializer(
+    serializers.ModelSerializer
+):
+    giver = serializers.CharField(
+        source="giver.username",
+        read_only=True,
+    )
+
+    receiver = serializers.CharField(
+        source="receiver.username",
+        read_only=True,
+    )
+
+    item = serializers.CharField(
+        source="item.name",
+        read_only=True,
+    )
+
+    class Meta:
+        model = TradeCycleTrade
+
+        fields = [
+            "giver",
+            "receiver",
+            "item",
+        ]
+
+
+class TradeCycleSerializer(
+    serializers.ModelSerializer
+):
+    participants = (
+        TradeCycleParticipantSerializer(
+            many=True,
+            read_only=True,
+        )
+    )
+
+    trades = (
+        TradeCycleTradeSerializer(
+            many=True,
+            read_only=True,
+        )
+    )
+
+    cycle_length = serializers.SerializerMethodField()
+    summary = serializers.SerializerMethodField()
+
+    class Meta:
+        model = TradeCycle
+
+        fields = [
+            "public_id",
+            "active",
+            "created_at",
+            "expires_at",
+            "participants",
+            "trades",
+            "cycle_length",
+            "summary",
+        ]
+
+    def get_cycle_length(self, obj):
+        return obj.participants.count()
+
+    def get_summary(self, obj):
+        return f"{self.get_cycle_length(obj)}-way trade cycle found"

@@ -12,6 +12,7 @@ from .views import (
     TradeProposalListView,
     TradeProposalDetailView,
     TradeProposalAcceptView,
+    TradeProposalCreateView,
 )
 
 urlpatterns = [
@@ -76,5 +77,11 @@ urlpatterns = [
         "trade-proposals/<uuid:public_id>/accept/",
         TradeProposalAcceptView.as_view(),
         name="trade-proposal-accept",
+    ),
+
+    path(
+        "trade-proposals/",
+        TradeProposalCreateView.as_view(),
+        name="trade-proposal-create",
     ),
 ]
