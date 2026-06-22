@@ -1,66 +1,480 @@
-Trade Cycle Engine - Architecture Overview
+# Trade Cycle Engine — Architecture Overview
 
-Purpose
--------
-This document describes the core domain model, service-layer architecture, and integration points for the Trade Cycle Engine backend.
+## Purpose
 
-Domain Model
-------------
-User
+This document describes the core domain model, service-layer architecture, execution workflow, and production-oriented design decisions used in the Trade Cycle Engine backend.
+
+---
+
+# System Overview
+
+Trade Cycle Engine is a graph-based barter trading platform that allows users to:
+
+- List items for exchange.
+- Express interest in other users' items.
+- Discover direct trades.
+- Detect multi-party trade cycles.
+- Create trade proposals.
+- Collect participant approvals.
+- Execute ownership transfers.
+- Maintain trade history.
+
+The system follows a layered architecture:
+
+- API Layer (Views)
+- Serialization Layer
+- Service Layer
+- Domain Models
+- Database
+
+---
+
+# Domain Model
+
+## User
+
+Extends Django's `AbstractUser`.
+
+### Fields
+
+- username
+- password
+- role
+
+### Roles
+
+- ADMIN
+- USER
+
+### Relationships
+
 - owns Items
 - creates Wants
+- participates in TradeProposals
+- participates in TradeCycles
 
-Item
-- fields: owner (User), public_id (UUID), name, description, status, created_at, updated_at
-- statuses: AVAILABLE, RESERVED, TRADED
+---
 
-Want
-- fields: user (User), public_id (UUID), item (Item), created_at
-- creates an edge in the trade graph: user -> item.owner
+## Item
 
-TradeProposal
-- fields: public_id, status, created_at, updated_at
-- relationships: participants (TradeParticipant), trade_items (TradeItem)
+Represents an item available for exchange.
 
-TradeParticipant
-- fields: proposal (TradeProposal), user (User), accepted (bool), accepted_at
+### Fields
 
-TradeItem
-- fields: proposal (TradeProposal), giver (User), receiver (User), item (Item), created_at
+- owner (User)
+- public_id (UUID)
+- name
+- description
+- status
+- created_at
+- updated_at
 
-Service Layer
--------------
-Location: `exchange/services/`
+### Statuses
 
-- `cycle_services.py`:
-  - `build_trade_graph()` - builds adjacency list from all Wants (select_related user,item,item__owner)
-  - `find_cycles_for_user(graph, user_id, max_depth)` - DFS-based cycle detection, returns structured cycles
+- AVAILABLE
+- RESERVED
+- TRADED
 
-- `trade_services.py`:
-  - `create_trade_proposal(participants, trades)` - creates TradeProposal, TradeParticipant, and TradeItem records within `transaction.atomic()`
-  - `accept_trade_proposal(proposal, user)` - marks participant accepted (uses `select_for_update()`), triggers execution when all accepted
-  - `execute_trade_proposal(proposal)` - transfers `Item.owner` to `TradeItem.receiver`, marks item as `TRADED`, updates proposal status to `EXECUTED` (all inside `transaction.atomic()`)
+---
 
-Guidelines & Best Practices
---------------------------
-- Services import models only (`from ..models import ...`). Do not import views or serializers in service modules.
-- Expose services via `exchange/services/__init__.py` for cleaner imports like `from exchange.services import build_trade_graph`.
-- Use `select_related`/`prefetch_related` to avoid N+1 queries.
-- Use `select_for_update()` when modifying participant acceptance to avoid race conditions.
+## Want
 
-Import Changes
---------------
-Update all existing imports referencing the old `exchange/services.py` to use the package:
-- `from exchange.services import build_trade_graph, find_cycles_for_user`
-- `from exchange.services import create_trade_proposal, accept_trade_proposal` (where needed)
+Represents interest in another user's item.
 
-Circular Dependency Risks
-------------------------
-- Risk: Importing views/serializers inside service modules leading to circular imports.
-- Mitigation: Services only import `models` and standard libraries (transaction, timezone, etc.). Keep service functions independent of request/response types.
+### Fields
 
-Migration & Test Notes
-----------------------
-- This refactor doesn't require DB migrations by itself. Changes to models (like earlier `public_id` additions) did require migrations.
-- When adding new logic that mutates models (e.g., ownership transfer), add unit tests in `exchange/tests/` that exercise service functions directly.
+- user
+- public_id
+- item
+- created_at
 
+### Constraints
+
+- One user cannot want the same item twice.
+- Users cannot want their own items.
+
+---
+
+## TradeProposal
+
+Represents a proposed multi-party trade.
+
+### Fields
+
+- public_id
+- status
+- created_at
+- updated_at
+
+### Statuses
+
+- PENDING
+- ACCEPTED
+- REJECTED
+- EXECUTED
+- EXPIRED
+
+### Relationships
+
+- participants
+- trade_items
+
+---
+
+## TradeParticipant
+
+Represents a participant in a proposal.
+
+### Fields
+
+- proposal
+- user
+- accepted
+- accepted_at
+
+### Constraints
+
+- One participant per proposal.
+
+---
+
+## TradeItem
+
+Represents an item transfer within a proposal.
+
+### Fields
+
+- proposal
+- giver
+- receiver
+- item
+- created_at
+
+### Constraints
+
+- One item per proposal.
+
+---
+
+## TradeCycle
+
+Stores detected trade cycles.
+
+### Fields
+
+- public_id
+- active
+- created_at
+- expires_at
+
+### Purpose
+
+Allows cycle recommendations to be persisted rather than recalculated repeatedly.
+
+---
+
+## TradeCycleParticipant
+
+Links users to cycles.
+
+### Fields
+
+- cycle
+- user
+
+---
+
+## TradeCycleTrade
+
+Stores the transfers inside a cycle.
+
+### Fields
+
+- cycle
+- giver
+- receiver
+- item
+
+---
+
+## TradeExecution
+
+Stores completed trade executions.
+
+### Fields
+
+- public_id
+- proposal
+- executed_at
+
+### Purpose
+
+Provides an immutable record of completed trades.
+
+---
+
+# Service Layer
+
+Location:
+
+```
+exchange/services/
+```
+
+---
+
+## cycle_services.py
+
+### build_trade_graph()
+
+Builds the trade graph using:
+
+- Want.user
+- Want.item
+- Item.owner
+
+Uses:
+
+- select_related()
+- prefetch_related()
+
+Returns an adjacency list.
+
+---
+
+### find_cycles_for_user()
+
+Performs depth-limited DFS.
+
+Parameters:
+
+- graph
+- user_id
+- max_depth
+
+Returns:
+
+- participants
+- trades
+- cycle length
+
+---
+
+### persist_trade_cycles()
+
+Stores detected cycles.
+
+Creates:
+
+- TradeCycle
+- TradeCycleParticipant
+- TradeCycleTrade
+
+Uses:
+
+- transaction.atomic()
+- bulk_create()
+
+---
+
+## trade_services.py
+
+### create_trade_proposal()
+
+Creates:
+
+- TradeProposal
+- TradeParticipant records
+- TradeItem records
+
+Uses:
+
+- transaction.atomic()
+- bulk_create()
+
+---
+
+### accept_trade_proposal()
+
+- Locks participant rows.
+- Marks participant accepted.
+- Records acceptance timestamp.
+- Executes trade after all approvals.
+
+Uses:
+
+- select_for_update()
+
+---
+
+### execute_trade_proposal()
+
+Transfers:
+
+- Item.owner
+- Item.status
+
+Updates:
+
+- Proposal status
+
+Creates:
+
+- TradeExecution record
+
+All operations occur inside a single transaction.
+
+---
+
+# API Architecture
+
+## Item APIs
+
+- GET /api/items/
+- POST /api/items/
+- PATCH /api/items/{id}/
+- DELETE /api/items/{id}/
+
+---
+
+## Want APIs
+
+- GET /api/wants/
+- POST /api/wants/
+- PATCH /api/wants/{id}/
+- DELETE /api/wants/{id}/
+
+---
+
+## Matching APIs
+
+- GET /api/matches/
+- GET /api/trades/direct/
+- GET /api/trades/cycles/
+
+---
+
+## Trade Proposal APIs
+
+- GET /api/trade-proposals/
+- POST /api/trade-proposals/
+- GET /api/trade-proposals/{public_id}/
+- POST /api/trade-proposals/{public_id}/accept/
+
+---
+
+## Trade History API
+
+- GET /api/trade-history/
+
+---
+
+# Query Optimization
+
+The project uses:
+
+- select_related()
+- prefetch_related()
+- bulk_create()
+- database indexing
+
+### Indexed Fields
+
+- Item.status
+- Item.created_at
+- TradeProposal.status
+- TradeProposal.created_at
+
+### Query Goals
+
+- Avoid N+1 queries.
+- Minimize database round trips.
+- Reduce row-by-row inserts.
+
+---
+
+# Concurrency Protection
+
+The system protects critical operations using:
+
+- transaction.atomic()
+- select_for_update()
+
+This prevents:
+
+- double acceptance
+- inconsistent execution
+- race conditions
+
+---
+
+# Rate Limiting
+
+Custom DRF throttles protect expensive endpoints.
+
+### TradeProposalThrottle
+
+Limits proposal creation.
+
+---
+
+### TradeAcceptanceThrottle
+
+Limits proposal acceptance attempts.
+
+---
+
+### CycleDetectionThrottle
+
+Limits graph traversal requests.
+
+---
+
+# Testing Strategy
+
+Tests are located in:
+
+```
+exchange/tests/
+```
+
+### Coverage
+
+- Item APIs
+- Want APIs
+- Trade proposals
+- Trade execution
+- Trade history
+- Cycle detection
+- Throttling
+- Permissions
+- Authentication
+
+Current test suite:
+
+- 42+ automated tests
+- All tests passing
+
+---
+
+# Design Principles
+
+- Fat service layer, thin views.
+- Business logic outside views.
+- Atomic write operations.
+- UUID-based public identifiers.
+- RESTful APIs.
+- Production-oriented query optimization.
+- Test-driven validation of business logic.
+- Separation of concerns.
+
+---
+
+# Future Enhancements
+
+- Docker deployment
+- CI/CD pipeline
+- Redis caching
+- Background jobs
+- Monitoring and logging
+- Production deployment infrastructure
