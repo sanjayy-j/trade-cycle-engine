@@ -18,11 +18,13 @@ from .models import (
     TradeProposal,
     TradeParticipant,
     TradeItem,
+    TradeExecution,
 )
 from .serializers import (
     ItemSerializer,
     WantSerializer, 
     TradeProposalSerializer,
+    TradeExecutionSerializer,
     TradeParticipantSerializer,
     TradeItemSerializer,
     TradeProposalCreateSerializer,
@@ -441,6 +443,37 @@ class TradeCycleView(APIView):
 
         serializer = TradeCycleSerializer(
             persisted_cycles,
+            many=True,
+        )
+
+        return Response(
+            serializer.data,
+            status=status.HTTP_200_OK,
+        )
+
+
+class TradeHistoryView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        executions = (
+            TradeExecution.objects
+            .filter(
+                proposal__participants__user=request.user
+            )
+            .distinct()
+            .select_related("proposal")
+            .prefetch_related(
+                "proposal__participants__user",
+                "proposal__trade_items__item",
+                "proposal__trade_items__giver",
+                "proposal__trade_items__receiver",
+            )
+            .order_by("-executed_at")
+        )
+
+        serializer = TradeExecutionSerializer(
+            executions,
             many=True,
         )
 

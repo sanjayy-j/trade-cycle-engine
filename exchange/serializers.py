@@ -9,6 +9,7 @@ from .models import (
     TradeParticipant,
     TradeItem,
     TradeCycle,
+    TradeExecution,
 )
 
 
@@ -164,6 +165,41 @@ class TradeProposalSerializer(
             "status",
             "created_at",
             "updated_at",
+            "participants",
+            "trade_items",
+        ]
+
+
+class TradeExecutionSerializer(
+    serializers.ModelSerializer
+):
+    proposal_public_id = serializers.CharField(
+        source="proposal.public_id",
+        read_only=True,
+    )
+    proposal_status = serializers.CharField(
+        source="proposal.status",
+        read_only=True,
+    )
+    participants = TradeParticipantSerializer(
+        source="proposal.participants",
+        many=True,
+        read_only=True,
+    )
+    trade_items = TradeItemSerializer(
+        source="proposal.trade_items",
+        many=True,
+        read_only=True,
+    )
+
+    class Meta:
+        model = TradeExecution
+
+        fields = [
+            "public_id",
+            "executed_at",
+            "proposal_public_id",
+            "proposal_status",
             "participants",
             "trade_items",
         ]

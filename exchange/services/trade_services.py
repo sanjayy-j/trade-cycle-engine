@@ -5,6 +5,7 @@ from ..models import (
     TradeProposal,
     TradeParticipant,
     TradeItem,
+    TradeExecution,
     Item,
 )
 
@@ -86,3 +87,7 @@ def execute_trade_proposal(
 
         proposal.status = TradeProposal.Status.EXECUTED
         proposal.save(update_fields=["status", "updated_at"])
+
+        TradeExecution.objects.get_or_create(
+            proposal=proposal,
+        )

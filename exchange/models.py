@@ -134,6 +134,31 @@ class TradeProposal(models.Model):
             f"Trade Proposal "
             f"{self.public_id}"
         )
+
+
+class TradeExecution(models.Model):
+
+    public_id = models.UUIDField(
+        default=uuid.uuid4,
+        unique=True,
+        editable=False,
+    )
+
+    proposal = models.OneToOneField(
+        TradeProposal,
+        on_delete=models.CASCADE,
+        related_name="execution",
+    )
+
+    executed_at = models.DateTimeField(
+        auto_now_add=True,
+    )
+
+    def __str__(self):
+        return (
+            f"Trade Execution "
+            f"{self.public_id}"
+        )
     
 class TradeParticipant(models.Model):
 
