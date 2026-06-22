@@ -10,6 +10,11 @@ from rest_framework.decorators import (
 
 from .pagination import ItemPagination
 from .permissions import IsAdminRole, IsOwnerOrAdmin
+from .throttles import (
+    TradeProposalThrottle,
+    TradeAcceptanceThrottle,
+    CycleDetectionThrottle,
+)
 from .models import (
     User,
     User,
@@ -429,6 +434,7 @@ class DirectTradeView(APIView):
 
 class TradeCycleView(APIView):
     permission_classes = [IsAuthenticated]
+    throttle_classes = [CycleDetectionThrottle]
 
     def get(self, request):
         graph = build_trade_graph()
@@ -488,6 +494,7 @@ class TradeProposalListCreateView(
     permission_classes = [
         IsAuthenticated
     ]
+    throttle_classes = [TradeProposalThrottle]
 
     def get(
         self,
@@ -675,6 +682,7 @@ class TradeProposalAcceptView(
     permission_classes = [
         IsAuthenticated
     ]
+    throttle_classes = [TradeAcceptanceThrottle]
 
     def post(
         self,
