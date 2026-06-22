@@ -6,6 +6,10 @@ from django.contrib.auth.models import AbstractUser
 from django.utils import timezone
 
 
+def default_cycle_expiry():
+    return timezone.now() + timedelta(hours=24)
+
+
 class User(AbstractUser):
 
     class Role(models.TextChoices):
@@ -45,10 +49,14 @@ class Item(models.Model):
     status = models.CharField(
         max_length=20,
         choices=Status.choices,
-        default=Status.AVAILABLE
+        default=Status.AVAILABLE,
+        db_index=True,
     )
 
-    created_at = models.DateTimeField(auto_now_add=True)
+    created_at = models.DateTimeField(
+        auto_now_add=True,
+        db_index=True,
+    )
     updated_at = models.DateTimeField(auto_now=True)
 
     def __str__(self):
@@ -109,10 +117,12 @@ class TradeProposal(models.Model):
         max_length=20,
         choices=Status.choices,
         default=Status.PENDING,
+        db_index=True,
     )
 
     created_at = models.DateTimeField(
         auto_now_add=True,
+        db_index=True,
     )
 
     updated_at = models.DateTimeField(
@@ -233,9 +243,6 @@ class TradeCycle(models.Model):
     created_at = models.DateTimeField(
         auto_now_add=True,
     )
-
-    def default_cycle_expiry():
-        return timezone.now() + timedelta(hours=24)
 
     expires_at = models.DateTimeField(
         default=default_cycle_expiry,

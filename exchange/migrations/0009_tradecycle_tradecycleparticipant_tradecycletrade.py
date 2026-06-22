@@ -21,7 +21,7 @@ class Migration(migrations.Migration):
                 ('public_id', models.UUIDField(default=uuid.uuid4, editable=False, unique=True)),
                 ('active', models.BooleanField(default=True)),
                 ('created_at', models.DateTimeField(auto_now_add=True)),
-                ('expires_at', models.DateTimeField(default=exchange.models.TradeCycle.default_cycle_expiry)),
+                ('expires_at', models.DateTimeField(default=exchange.models.default_cycle_expiry)),
             ],
         ),
         migrations.CreateModel(

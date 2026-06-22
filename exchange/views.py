@@ -60,7 +60,11 @@ class ItemListCreateView(APIView):
     permission_classes = [IsAuthenticated]
 
     def get(self, request):
-        items = Item.objects.order_by("created_at")
+        items = (
+            Item.objects
+            .select_related("owner")
+            .order_by("created_at")
+        )
 
         paginator = ItemPagination()
         page = paginator.paginate_queryset(items, request)
@@ -88,7 +92,9 @@ class ItemDetailView(APIView):
 
     def get_object(self, public_id):
         try:
-            return Item.objects.get(public_id=public_id)
+            return Item.objects.select_related("owner").get(
+                public_id=public_id
+            )
 
         except Item.DoesNotExist:
             return None
@@ -180,8 +186,10 @@ class WantListCreateView(APIView):
     permission_classes = [IsAuthenticated]
 
     def get(self, request):
-        wants = Want.objects.filter(
-            user=request.user
+        wants = (
+            Want.objects
+            .filter(user=request.user)
+            .select_related("user", "item")
         )
 
         serializer = WantSerializer(
@@ -219,7 +227,12 @@ class WantDetailView(APIView):
 
     def get_object(self, public_id):
         try:
-            return Want.objects.get(public_id=public_id)
+            return Want.objects.select_related(
+                "user",
+                "item",
+            ).get(
+                public_id=public_id
+            )
 
         except Want.DoesNotExist:
             return None
@@ -370,7 +383,11 @@ class DirectTradeView(APIView):
         all_matching_wants = (
             Want.objects
             .filter(item__in=my_items)
-            .select_related('user', 'item')
+            .select_related(
+                'user',
+                'item',
+                'item__owner',
+            )
         )
 
         wants_by_user = {}
@@ -445,6 +462,10 @@ class TradeProposalListCreateView(
     ):
         proposals = (
             TradeProposal.objects
+            .filter(
+                participants__user=request.user
+            )
+            .distinct()
             .prefetch_related(
                 "participants__user",
                 "trade_items__item",
@@ -509,26 +530,45 @@ class TradeProposalListCreateView(
             )
         )
 
+        item_ids = {
+            trade["item"]
+            for trade in trade_data
+        }
+        user_ids = {
+            trade["giver"]
+            for trade in trade_data
+        } | {
+            trade["receiver"]
+            for trade in trade_data
+        }
+
+        items = {
+            item.id: item
+            for item in Item.objects.filter(
+                id__in=item_ids
+            )
+        }
+        users = {
+            user.id: user
+            for user in User.objects.filter(
+                id__in=user_ids
+            )
+        }
+
+        if len(items) != len(item_ids):
+            raise Item.DoesNotExist
+
+        if len(users) != len(user_ids):
+            raise User.DoesNotExist
+
         trades = []
 
         for trade in trade_data:
-            item = Item.objects.get(
-                id=trade["item"]
-            )
-
-            giver = User.objects.get(
-                id=trade["giver"]
-            )
-
-            receiver = User.objects.get(
-                id=trade["receiver"]
-            )
-
             trades.append(
                 {
-                    "item": item,
-                    "giver": giver,
-                    "receiver": receiver,
+                    "item": items[trade["item"]],
+                    "giver": users[trade["giver"]],
+                    "receiver": users[trade["receiver"]],
                 }
             )
 
@@ -612,7 +652,10 @@ class TradeProposalAcceptView(
             proposal = (
                 TradeProposal.objects
                 .prefetch_related(
-                    "participants"
+                    "participants__user",
+                    "trade_items__item",
+                    "trade_items__giver",
+                    "trade_items__receiver",
                 )
                 .get(
                     public_id=public_id
@@ -628,10 +671,9 @@ class TradeProposalAcceptView(
                 status=status.HTTP_404_NOT_FOUND,
             )
 
-        participant_exists = (
-            proposal.participants.filter(
-                user=request.user
-            ).exists()
+        participant_exists = any(
+            participant.user_id == request.user.id
+            for participant in proposal.participants.all()
         )
 
         if not participant_exists:

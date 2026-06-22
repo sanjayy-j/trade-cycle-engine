@@ -16,19 +16,27 @@ def create_trade_proposal(
 
         proposal = TradeProposal.objects.create()
 
-        for user in participants:
-            TradeParticipant.objects.create(
-                proposal=proposal,
-                user=user,
-            )
+        TradeParticipant.objects.bulk_create(
+            [
+                TradeParticipant(
+                    proposal=proposal,
+                    user=user,
+                )
+                for user in participants
+            ]
+        )
 
-        for trade in trades:
-            TradeItem.objects.create(
-                proposal=proposal,
-                giver=trade["giver"],
-                receiver=trade["receiver"],
-                item=trade["item"],
-            )
+        TradeItem.objects.bulk_create(
+            [
+                TradeItem(
+                    proposal=proposal,
+                    giver=trade["giver"],
+                    receiver=trade["receiver"],
+                    item=trade["item"],
+                )
+                for trade in trades
+            ]
+        )
 
     return proposal
 
