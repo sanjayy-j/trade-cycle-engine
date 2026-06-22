@@ -432,7 +432,7 @@ class TradeCycleView(APIView):
             status=status.HTTP_200_OK,
         )
     
-class TradeProposalListView(
+class TradeProposalListCreateView(
     APIView
 ):
     permission_classes = [
@@ -467,6 +467,87 @@ class TradeProposalListView(
             serializer.data,
             status=status.HTTP_200_OK,
         )
+    
+    def post(
+        self,
+        request,
+    ):
+        serializer = (
+            TradeProposalCreateSerializer(
+                data=request.data
+            )
+        )
+
+        serializer.is_valid(
+            raise_exception=True
+        )
+
+        participant_ids = (
+            serializer.validated_data[
+                "participants"
+            ]
+        )
+
+        trade_data = (
+            serializer.validated_data[
+                "trades"
+            ]
+        )
+
+        if request.user.id not in participant_ids:
+            return Response(
+                {
+                    "error":
+                    "You must be part of the trade"
+                },
+                status=status.HTTP_403_FORBIDDEN,
+            )
+
+        participants = list(
+            User.objects.filter(
+                id__in=participant_ids
+            )
+        )
+
+        trades = []
+
+        for trade in trade_data:
+            item = Item.objects.get(
+                id=trade["item"]
+            )
+
+            giver = User.objects.get(
+                id=trade["giver"]
+            )
+
+            receiver = User.objects.get(
+                id=trade["receiver"]
+            )
+
+            trades.append(
+                {
+                    "item": item,
+                    "giver": giver,
+                    "receiver": receiver,
+                }
+            )
+
+        proposal = create_trade_proposal(
+            participants,
+            trades,
+        )
+
+        serializer = (
+            TradeProposalSerializer(
+                proposal
+            )
+        )
+
+        return Response(
+            serializer.data,
+            status=status.HTTP_201_CREATED,
+        )
+
     
 class TradeProposalDetailView(
     APIView
@@ -579,97 +660,4 @@ class TradeProposalAcceptView(
         return Response(
             serializer.data,
             status=status.HTTP_200_OK,
-        )
-    
-class TradeProposalCreateView(
-    APIView
-):
-    permission_classes = [
-        IsAuthenticated
-    ]
-
-    def post(
-        self,
-        request,
-    ):
-        serializer = (
-            TradeProposalCreateSerializer(
-                data=request.data
-            )
-        )
-
-        serializer.is_valid(
-            raise_exception=True
-        )
-
-        participant_ids = (
-            serializer.validated_data[
-                "participants"
-            ]
-        )
-
-        trade_data = (
-            serializer.validated_data[
-                "trades"
-            ]
-        )
-
-        participants = list(
-            User.objects.filter(
-                id__in=participant_ids
-            )
-        )
-
-        if (
-            request.user.id
-            not in participant_ids
-        ):
-            return Response(
-                {
-                    "error":
-                    "You must be part of the trade"
-                },
-                status=status.HTTP_403_FORBIDDEN,
-            )
-
-        trades = []
-
-        for trade in trade_data:
-
-            item = Item.objects.get(
-                id=trade["item"]
-            )
-
-            giver = User.objects.get(
-                id=trade["giver"]
-            )
-
-            receiver = User.objects.get(
-                id=trade["receiver"]
-            )
-
-            trades.append(
-                {
-                    "item": item,
-                    "giver": giver,
-                    "receiver": receiver,
-                }
-            )
-
-        proposal = (
-            create_trade_proposal(
-                participants,
-                trades,
-            )
-        )
-
-        response_serializer = (
-            TradeProposalSerializer(
-                proposal
-            )
-        )
-
-        return Response(
-            response_serializer.data,
-            status=status.HTTP_201_CREATED,
         )

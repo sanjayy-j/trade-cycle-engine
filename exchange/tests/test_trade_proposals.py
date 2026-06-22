@@ -1,0 +1,344 @@
+from django.test import TestCase
+
+from rest_framework.test import APIClient
+
+from exchange.models import (
+    User,
+    Item,
+    TradeProposal,
+    TradeParticipant,
+    TradeItem,
+)
+
+
+class TradeProposalApiTests(TestCase):
+
+    def setUp(self):
+        self.client = APIClient()
+
+        self.user1 = User.objects.create_user(
+            username="sanjay",
+            password="test123",
+        )
+
+        self.user2 = User.objects.create_user(
+            username="murthy",
+            password="test123",
+        )
+
+        self.user3 = User.objects.create_user(
+            username="kavin",
+            password="test123",
+        )
+
+        self.user4 = User.objects.create_user(
+            username="vidhya",
+            password="test123",
+        )
+
+        self.item1 = Item.objects.create(
+            name="Book",
+            owner=self.user1,
+        )
+
+        self.item2 = Item.objects.create(
+            name="Keyboard",
+            owner=self.user2,
+        )
+
+        self.item3 = Item.objects.create(
+            name="Mouse",
+            owner=self.user3,
+        )
+
+        self.client.force_authenticate(
+            user=self.user1
+        )
+
+    def create_proposal(self):
+
+        response = self.client.post(
+            "/api/trade-proposals/",
+            {
+                "participants": [
+                    self.user1.id,
+                    self.user2.id,
+                    self.user3.id,
+                ],
+                "trades": [
+                    {
+                        "giver": self.user1.id,
+                        "receiver": self.user2.id,
+                        "item": self.item1.id,
+                    },
+                    {
+                        "giver": self.user2.id,
+                        "receiver": self.user3.id,
+                        "item": self.item2.id,
+                    },
+                    {
+                        "giver": self.user3.id,
+                        "receiver": self.user1.id,
+                        "item": self.item3.id,
+                    },
+                ],
+            },
+            format="json",
+        )
+
+        return response
+
+    def test_create_trade_proposal(self):
+
+        response = self.create_proposal()
+
+        self.assertEqual(
+            response.status_code,
+            201,
+        )
+
+        self.assertEqual(
+            TradeProposal.objects.count(),
+            1,
+        )
+
+        self.assertEqual(
+            TradeParticipant.objects.count(),
+            3,
+        )
+
+        self.assertEqual(
+            TradeItem.objects.count(),
+            3,
+        )
+
+    def test_creator_must_be_participant(self):
+
+        response = self.client.post(
+            "/api/trade-proposals/",
+            {
+                "participants": [
+                    self.user2.id,
+                    self.user3.id,
+                ],
+                "trades": [],
+            },
+            format="json",
+        )
+
+        self.assertEqual(
+            response.status_code,
+            400,
+        )
+
+    def test_get_trade_proposal_detail(self):
+
+        response = self.create_proposal()
+
+        public_id = response.data["public_id"]
+
+        response = self.client.get(
+            f"/api/trade-proposals/{public_id}/"
+        )
+
+        self.assertEqual(
+            response.status_code,
+            200,
+        )
+
+        self.assertEqual(
+            response.data["public_id"],
+            public_id,
+        )
+
+    def test_trade_proposal_not_found(self):
+
+        response = self.client.get(
+            "/api/trade-proposals/00000000-0000-0000-0000-000000000000/"
+        )
+
+        self.assertEqual(
+            response.status_code,
+            404,
+        )
+
+    def test_participant_can_accept_trade(self):
+
+        response = self.create_proposal()
+
+        proposal = TradeProposal.objects.get(
+            public_id=response.data["public_id"]
+        )
+
+        response = self.client.post(
+            f"/api/trade-proposals/{proposal.public_id}/accept/"
+        )
+
+        self.assertEqual(
+            response.status_code,
+            200,
+        )
+
+        participant = TradeParticipant.objects.get(
+            proposal=proposal,
+            user=self.user1,
+        )
+
+        self.assertTrue(
+            participant.accepted
+        )
+
+        self.assertIsNotNone(
+            participant.accepted_at
+        )
+
+    def test_non_participant_cannot_accept(self):
+
+        response = self.create_proposal()
+
+        proposal = TradeProposal.objects.get(
+            public_id=response.data["public_id"]
+        )
+
+        self.client.force_authenticate(
+            user=self.user4
+        )
+
+        response = self.client.post(
+            f"/api/trade-proposals/{proposal.public_id}/accept/"
+        )
+
+        self.assertEqual(
+            response.status_code,
+            403,
+        )
+
+    def test_trade_executes_after_all_accept(self):
+
+        response = self.create_proposal()
+
+        proposal = TradeProposal.objects.get(
+            public_id=response.data["public_id"]
+        )
+
+        self.client.force_authenticate(
+            user=self.user1
+        )
+        self.client.post(
+            f"/api/trade-proposals/{proposal.public_id}/accept/"
+        )
+
+        proposal.refresh_from_db()
+
+        self.assertEqual(
+            proposal.status,
+            TradeProposal.Status.PENDING,
+        )
+
+        self.client.force_authenticate(
+            user=self.user2
+        )
+        self.client.post(
+            f"/api/trade-proposals/{proposal.public_id}/accept/"
+        )
+
+        proposal.refresh_from_db()
+
+        self.assertEqual(
+            proposal.status,
+            TradeProposal.Status.PENDING,
+        )
+
+        self.client.force_authenticate(
+            user=self.user3
+        )
+        self.client.post(
+            f"/api/trade-proposals/{proposal.public_id}/accept/"
+        )
+
+        proposal.refresh_from_db()
+
+        self.assertEqual(
+            proposal.status,
+            TradeProposal.Status.EXECUTED,
+        )
+
+    def test_item_ownership_transfers(self):
+
+        response = self.create_proposal()
+
+        proposal = TradeProposal.objects.get(
+            public_id=response.data["public_id"]
+        )
+
+        for user in [
+            self.user1,
+            self.user2,
+            self.user3,
+        ]:
+            self.client.force_authenticate(
+                user=user
+            )
+
+            self.client.post(
+                f"/api/trade-proposals/{proposal.public_id}/accept/"
+            )
+
+        self.item1.refresh_from_db()
+        self.item2.refresh_from_db()
+        self.item3.refresh_from_db()
+
+        self.assertEqual(
+            self.item1.owner,
+            self.user2,
+        )
+
+        self.assertEqual(
+            self.item2.owner,
+            self.user3,
+        )
+
+        self.assertEqual(
+            self.item3.owner,
+            self.user1,
+        )
+
+    def test_items_marked_as_traded(self):
+
+        response = self.create_proposal()
+
+        proposal = TradeProposal.objects.get(
+            public_id=response.data["public_id"]
+        )
+
+        for user in [
+            self.user1,
+            self.user2,
+            self.user3,
+        ]:
+            self.client.force_authenticate(
+                user=user
+            )
+
+            self.client.post(
+                f"/api/trade-proposals/{proposal.public_id}/accept/"
+            )
+
+        self.item1.refresh_from_db()
+        self.item2.refresh_from_db()
+        self.item3.refresh_from_db()
+
+        self.assertEqual(
+            self.item1.status,
+            Item.Status.TRADED,
+        )
+
+        self.assertEqual(
+            self.item2.status,
+            Item.Status.TRADED,
+        )
+
+        self.assertEqual(
+            self.item3.status,
+            Item.Status.TRADED,
+        )
