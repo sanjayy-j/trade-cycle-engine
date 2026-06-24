@@ -25,7 +25,6 @@ services:
     ports:
       - "8000:8000"
     environment:
-      DJANGO_ENV: ${DJANGO_ENV:-development}
       DEBUG: ${DEBUG:-True}
       SECRET_KEY: ${SECRET_KEY:-dev-secret-key}
       ALLOWED_HOSTS: ${ALLOWED_HOSTS:-localhost,127.0.0.1}

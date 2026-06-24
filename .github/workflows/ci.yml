@@ -25,7 +25,6 @@ jobs:
           --health-retries 10
 
     env:
-      DJANGO_ENV: development
       DEBUG: "True"
       SECRET_KEY: ci-test-secret-key
       ALLOWED_HOSTS: localhost,127.0.0.1

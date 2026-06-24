@@ -273,6 +273,22 @@ class TradeProposalApiTests(TestCase):
             self.user1,
         )
 
+    def test_deleted_item_cannot_be_proposed(self):
+        self.item1.is_deleted = True
+        self.item1.save(update_fields=["is_deleted"])
+
+        response = self.create_proposal()
+
+        self.assertEqual(
+            response.status_code,
+            400,
+        )
+
+        self.assertEqual(
+            TradeProposal.objects.count(),
+            0,
+        )
+
     def test_giver_must_be_participant(self):
 
         response = self.client.post(

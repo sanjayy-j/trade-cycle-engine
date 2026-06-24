@@ -94,3 +94,25 @@ class WantApiTests(TestCase):
             response.status_code,
             400,
         )
+
+    def test_deleted_item_cannot_be_wanted(self):
+        self.item2.is_deleted = True
+        self.item2.save(update_fields=["is_deleted"])
+
+        response = self.client.post(
+            "/api/wants/",
+            {
+                "item": self.item2.id,
+            },
+            format="json",
+        )
+
+        self.assertEqual(
+            response.status_code,
+            400,
+        )
+
+        self.assertEqual(
+            Want.objects.count(),
+            0,
+        )

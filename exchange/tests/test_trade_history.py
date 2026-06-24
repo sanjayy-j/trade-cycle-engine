@@ -122,3 +122,27 @@ class TradeHistoryApiTests(TestCase):
             response.data[0]["proposal_public_id"],
             str(proposal.public_id),
         )
+
+    def test_history_survives_deletion_of_a_traded_item(self):
+        response = self.create_proposal()
+        proposal = TradeProposal.objects.get(
+            public_id=response.data["public_id"]
+        )
+
+        self.accept_proposal(proposal)
+
+        # item1 (Book) was given by user1 to user2; user2 now owns it and
+        # can soft-delete it. The trade record must keep showing it.
+        self.item1.refresh_from_db()
+        self.client.force_authenticate(user=self.user2)
+        self.client.delete(f"/api/items/{self.item1.public_id}/")
+
+        self.client.force_authenticate(user=self.user1)
+        response = self.client.get("/api/trade-history/")
+
+        self.assertEqual(response.status_code, 200)
+
+        trade_items = response.data[0]["trade_items"]
+        item_names = [trade["item"] for trade in trade_items]
+
+        self.assertIn("Book", item_names)
