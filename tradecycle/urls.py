@@ -1,3 +1,5 @@
+"""Project-level URL routes: admin, auth, API schema, and the exchange app."""
+
 from django.contrib import admin
 from django.urls import include, path
 from drf_spectacular.views import (
@@ -9,9 +11,14 @@ from rest_framework_simplejwt.views import (
     TokenRefreshView,
 )
 
+from exchange.views import HealthView, VersionView, RegisterView
+
 
 urlpatterns = [
     path("admin/", admin.site.urls),
+
+    path("health/", HealthView.as_view(), name="health"),
+    path("version/", VersionView.as_view(), name="version"),
 
     path(
         "api/schema/",
@@ -24,6 +31,12 @@ urlpatterns = [
         SpectacularSwaggerView.as_view(
             url_name="schema"
         ),
+    ),
+
+    path(
+        "api/auth/register/",
+        RegisterView.as_view(),
+        name="register",
     ),
 
     path(
