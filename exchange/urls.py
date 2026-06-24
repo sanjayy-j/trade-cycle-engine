@@ -1,11 +1,13 @@
-from django.urls import path
+"""URL routes for the exchange app's API endpoints."""
+
+from django.urls import path, include
+from rest_framework.routers import DefaultRouter
+
 from .views import (
     profile,
     admin_only,
-    ItemListCreateView,
-    ItemDetailView,
-    WantListCreateView,
-    WantDetailView,
+    ItemViewSet,
+    WantViewSet,
     MatchListView,
     DirectTradeView,
     TradeCycleView,
@@ -13,29 +15,19 @@ from .views import (
     TradeProposalListCreateView,
     TradeProposalDetailView,
     TradeProposalAcceptView,
+    TradeProposalRejectView,
 )
+
+# Only true CRUD resources (Item, Want) go through the router. Every
+# workflow/action endpoint below stays an explicit path - see
+# architecture.md for why.
+router = DefaultRouter()
+router.register("items", ItemViewSet, basename="item")
+router.register("wants", WantViewSet, basename="want")
 
 urlpatterns = [
     path("profile/", profile),
     path("admin-only/", admin_only),
-
-    path(
-        "items/",
-        ItemListCreateView.as_view(),
-        name="item-list-create",
-    ),
-
-    path(
-        "items/<uuid:public_id>/",
-        ItemDetailView.as_view(),
-        name="item-detail",
-    ),
-
-    path(
-        "wants/",
-        WantListCreateView.as_view(),
-        name="want-list-create",
-    ),
 
     path(
         "matches/",
@@ -53,12 +45,6 @@ urlpatterns = [
         "trades/cycles/",
         TradeCycleView.as_view(),
         name="trade-cycles",
-    ),
-
-    path(
-        "wants/<uuid:public_id>/",
-        WantDetailView.as_view(),
-        name="want-detail",
     ),
 
     path(
@@ -80,8 +66,16 @@ urlpatterns = [
     ),
 
     path(
+        "trade-proposals/<uuid:public_id>/reject/",
+        TradeProposalRejectView.as_view(),
+        name="trade-proposal-reject",
+    ),
+
+    path(
         "trade-history/",
         TradeHistoryView.as_view(),
         name="trade-history",
     ),
+
+    path("", include(router.urls)),
 ]
