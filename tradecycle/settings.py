@@ -1,27 +1,46 @@
-"""Settings shared by every environment; environment-specific overrides live in
-development.py and production.py.
+"""
+Django settings for the Trade Cycle Engine.
+
+A single settings module, kept intentionally flat for a project this size.
+Behavior is controlled by environment variables (loaded from a local .env
+via python-dotenv): DEBUG selects between permissive local defaults and
+strict, fail-fast production settings.
 """
 
 import os
 from pathlib import Path
 
+from django.core.exceptions import ImproperlyConfigured
 from dotenv import load_dotenv
 
 load_dotenv()
 
-BASE_DIR = Path(__file__).resolve().parent.parent.parent
+BASE_DIR = Path(__file__).resolve().parent.parent
 
 API_VERSION = "1.0.0"
 
 SECRET_KEY = os.getenv("SECRET_KEY")
 
-DEBUG = os.getenv("DEBUG") == "True"
+DEBUG = os.getenv("DEBUG", "True") == "True"
 
 ALLOWED_HOSTS = [
     host.strip()
-    for host in os.getenv("ALLOWED_HOSTS", "").split(",")
+    for host in os.getenv("ALLOWED_HOSTS", "localhost,127.0.0.1").split(",")
     if host.strip()
 ]
+
+# Fail fast in production rather than booting with an insecure secret key
+# or an empty host allowlist.
+if not DEBUG:
+    if not SECRET_KEY:
+        raise ImproperlyConfigured(
+            "SECRET_KEY environment variable must be set when DEBUG=False."
+        )
+
+    if not ALLOWED_HOSTS:
+        raise ImproperlyConfigured(
+            "ALLOWED_HOSTS environment variable must be set when DEBUG=False."
+        )
 
 INSTALLED_APPS = [
     'django.contrib.admin',
@@ -127,11 +146,23 @@ STATIC_ROOT = BASE_DIR / "staticfiles"
 
 AUTH_USER_MODEL = "exchange.User"
 
-# Security/cookie/HSTS settings are intentionally NOT defined here: they
-# depend on which environment is active and are set explicitly in
-# development.py (relaxed) and production.py (strict) instead of being
-# derived from a DEBUG flag that could be overridden after this module
-# is imported.
+# Relaxed locally so plain-HTTP development works; strict whenever
+# DEBUG=False, which is how this project decides it's running in
+# production.
+if DEBUG:
+    SECURE_SSL_REDIRECT = False
+    SESSION_COOKIE_SECURE = False
+    CSRF_COOKIE_SECURE = False
+    SECURE_HSTS_SECONDS = 0
+    SECURE_HSTS_INCLUDE_SUBDOMAINS = False
+    SECURE_HSTS_PRELOAD = False
+else:
+    SECURE_SSL_REDIRECT = os.getenv("SECURE_SSL_REDIRECT", "True") == "True"
+    SESSION_COOKIE_SECURE = True
+    CSRF_COOKIE_SECURE = True
+    SECURE_HSTS_SECONDS = int(os.getenv("SECURE_HSTS_SECONDS", "31536000"))
+    SECURE_HSTS_INCLUDE_SUBDOMAINS = True
+    SECURE_HSTS_PRELOAD = True
 
 LOGGING = {
     "version": 1,
@@ -165,7 +196,7 @@ LOGGING = {
         },
         "exchange": {
             "handlers": ["console"],
-            "level": "INFO",
+            "level": "DEBUG" if DEBUG else "INFO",
             "propagate": False,
         },
     },
