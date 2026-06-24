@@ -41,10 +41,17 @@ class, or response shape for the existing accept/create/detail flows.
 - `exchange/exceptions/` — `ItemNotAvailableError`,
   `ProposalNotPendingError`. Services raise these; views catch them and
   map to `400`/`409`.
-- `tradecycle/settings/` — `base.py` (everything environment-agnostic),
-  `development.py` (relaxed security defaults), `production.py`
-  (fail-fast validation + strict security settings). Selected via the
-  `DJANGO_ENV` env var in `tradecycle/settings/__init__.py`.
+- `exchange/permissions.py` — `IsAdminRole`, `IsOwnerOrAdmin`, and
+  `OwnerOrAdminActionsMixin`. The mixin resolves `get_permissions()` from a
+  per-viewset `owner_protected_actions` tuple, since `ItemViewSet` and
+  `WantViewSet` both need "owner or admin for these actions, authenticated
+  for the rest" and previously duplicated that logic.
+- `tradecycle/settings.py` — a single settings module. `DEBUG` (from the
+  environment, default `True`) is the only switch: it picks relaxed local
+  cookie/HSTS defaults vs. strict production ones, and gates the fail-fast
+  `SECRET_KEY`/`ALLOWED_HOSTS` check. No settings package, no
+  environment-name indirection — there's nothing in this project's scope
+  that justified splitting settings across multiple files.
 
 ## Trade proposal lifecycle
 
@@ -105,13 +112,55 @@ Two places need real locking, both via Postgres `SELECT ... FOR UPDATE`:
    before mutating them, in a fixed order (`order_by("id")`) so two
    concurrent executions can never deadlock against each other.
 
+## Soft delete strategy
+
+`Item` is the only model with soft delete (`is_deleted` + `deleted_at`).
+Deleting an item via the API never removes its row — `TradeItem` and
+`TradeExecution` reference items by foreign key, and a hard delete would
+either cascade away historical trade records or be impossible to express
+cleanly. `ItemViewSet.perform_destroy` flips `is_deleted`/`deleted_at`
+instead of calling `.delete()`.
+
+This is deliberately *not* a generic `SoftDeleteMixin` — no other model in
+this codebase needs soft delete, and a mixin used by exactly one model is
+speculative abstraction.
+
+Two managers exist on `Item`:
+
+- `Item.objects` — the unfiltered default/base manager. Forward foreign-key
+  access (e.g. `trade_item.item`, `.item.name` in a serializer's `source=`)
+  resolves through this manager, so a soft-deleted item still renders
+  correctly inside historical trade/proposal/execution data.
+- `Item.active` — filters `is_deleted=False`. Used everywhere an item must
+  actually be tradable: `ItemViewSet.get_queryset` (listings/retrieve/
+  update/destroy), `DirectTradeView`/`MatchListView` (matching), and as the
+  `queryset=` on the `item` fields of `WantSerializer` and `TradeSerializer`
+  (so a deleted item can't be wanted or proposed — DRF rejects the id as a
+  normal 400, since it isn't in that field's queryset). `build_trade_graph`
+  filters `item__is_deleted=False` directly for the same reason.
+
+`create_trade_proposal` additionally re-checks `item.is_deleted` (alongside
+`status != AVAILABLE`) on the locked rows themselves, not just at the
+serializer layer — an item could be soft-deleted in the window between
+request validation and the lock being acquired.
+
+The reverse direction is guarded too: `ItemViewSet.destroy` rejects deletion
+of a `RESERVED` item outright (`400`, before `perform_destroy` ever runs),
+because that item is already committed to an in-flight proposal — letting
+it disappear mid-negotiation would let `execute_trade_proposal` later
+transfer ownership of an item nobody can see anymore. `AVAILABLE` and
+`TRADED` items have no such conflict and can always be deleted. This check
+lives directly in the view's `destroy()` override; it isn't a signal, a
+model hook, or a service function, since the only caller that needs it is
+this one endpoint.
+
 ## Cycle detection & persistence
 
-`build_trade_graph()` builds an adjacency list of all `AVAILABLE`-item
-wants. `find_cycles_for_user()` runs a DFS from a single user, capped at
-`MAX_CYCLE_LENGTH`, returning cycles of length ≥ 3 (a 2-party mutual want
-is a direct trade, surfaced separately via `DirectTradeView`, not a
-"cycle").
+`build_trade_graph()` builds an adjacency list of all `AVAILABLE`,
+non-deleted wanted items. `find_cycles_for_user()` runs a DFS from a single
+user, capped at `MAX_CYCLE_LENGTH`, returning cycles of length ≥ 3 (a
+2-party mutual want is a direct trade, surfaced separately via
+`DirectTradeView`, not a "cycle").
 
 `persist_trade_cycles()` avoids creating duplicate rows on repeated
 detection calls: before inserting a new `TradeCycle`, it builds a
