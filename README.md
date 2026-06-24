@@ -5,7 +5,7 @@ they own and items they want; the platform finds direct trades and
 multi-party trade cycles between users automatically.
 
 Traditional barter fails because of the **double coincidence of wants
-problem** — the person who owns the item you want may not want anything you
+problem** - the person who owns the item you want may not want anything you
 own in return. Trade Cycle Engine solves this by modeling users and their
 wants as a directed graph and searching it for valid exchange cycles.
 
