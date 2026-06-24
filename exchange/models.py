@@ -1,9 +1,15 @@
+"""Domain models for users, items, wants, trade proposals, and trade cycles."""
+
 import uuid
 from datetime import timedelta
 
 from django.db import models
 from django.contrib.auth.models import AbstractUser
 from django.utils import timezone
+
+
+def _default_expiry():
+    return timezone.now() + timedelta(hours=24)
 
 
 def default_cycle_expiry():
@@ -14,7 +20,18 @@ def default_cycle_expiry():
     explicitly completed or deactivated.
     """
 
-    return timezone.now() + timedelta(hours=24)
+    return _default_expiry()
+
+
+def default_proposal_expiry():
+    """
+    Return the default expiration time for a trade proposal.
+
+    Pending proposals expire 24 hours after creation unless
+    accepted, rejected, or executed before then.
+    """
+
+    return _default_expiry()
 
 
 class User(AbstractUser):
@@ -29,11 +46,7 @@ class User(AbstractUser):
         ADMIN = "ADMIN", "Admin"
         USER = "USER", "User"
 
-    role = models.CharField(
-        max_length=10,
-        choices=Role.choices,
-        default=Role.USER
-    )
+    role = models.CharField(max_length=10, choices=Role.choices, default=Role.USER)
 
 
 class Item(models.Model):
@@ -80,7 +93,7 @@ class Item(models.Model):
 
     def __str__(self):
         return self.name
-    
+
 
 class Want(models.Model):
     """
@@ -89,7 +102,7 @@ class Want(models.Model):
     A want creates a directed relationship between a user
     and the owner of the desired item, forming the trade graph.
     """
-    
+
     user = models.ForeignKey(
         User,
         on_delete=models.CASCADE,
@@ -108,15 +121,12 @@ class Want(models.Model):
         related_name="wanted_by",
     )
 
-    created_at = models.DateTimeField(
-        auto_now_add=True
-    )
+    created_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:
         constraints = [
             models.UniqueConstraint(
-                fields=["user", "item"],
-                name="unique_user_item_want"
+                fields=["user", "item"], name="unique_user_item_want"
             )
         ]
 
@@ -161,11 +171,20 @@ class TradeProposal(models.Model):
         auto_now=True,
     )
 
-    def __str__(self):
+    expires_at = models.DateTimeField(
+        default=default_proposal_expiry,
+        db_index=True,
+    )
+
+    def is_expired(self):
+        """Returns True if this proposal is still PENDING past its expiry."""
         return (
-            f"Trade Proposal "
-            f"{self.public_id}"
+            self.status == TradeProposal.Status.PENDING
+            and timezone.now() >= self.expires_at
         )
+
+    def __str__(self):
+        return f"Trade Proposal " f"{self.public_id}"
 
 
 class TradeExecution(models.Model):
@@ -193,11 +212,9 @@ class TradeExecution(models.Model):
     )
 
     def __str__(self):
-        return (
-            f"Trade Execution "
-            f"{self.public_id}"
-        )
-    
+        return f"Trade Execution " f"{self.public_id}"
+
+
 class TradeParticipant(models.Model):
     """
     Associates a user with a trade proposal.
@@ -237,18 +254,14 @@ class TradeParticipant(models.Model):
                     "proposal",
                     "user",
                 ],
-                name=(
-                    "unique_user_per_proposal"
-                ),
+                name=("unique_user_per_proposal"),
             )
         ]
 
     def __str__(self):
-        return (
-            f"{self.user.username} "
-            f"in {self.proposal.public_id}"
-        )
-    
+        return f"{self.user.username} " f"in {self.proposal.public_id}"
+
+
 class TradeItem(models.Model):
     """
     Represents an item transfer within a trade proposal.
@@ -283,9 +296,7 @@ class TradeItem(models.Model):
         related_name="trade_records",
     )
 
-    created_at = models.DateTimeField(
-        auto_now_add=True
-    )
+    created_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:
         constraints = [
@@ -294,9 +305,7 @@ class TradeItem(models.Model):
                     "proposal",
                     "item",
                 ],
-                name=(
-                    "unique_item_per_proposal"
-                ),
+                name=("unique_item_per_proposal"),
             )
         ]
 
@@ -306,7 +315,7 @@ class TradeItem(models.Model):
             f"{self.receiver.username} "
             f"({self.item.name})"
         )
-    
+
 
 class TradeCycle(models.Model):
     """
@@ -314,7 +323,7 @@ class TradeCycle(models.Model):
 
     A trade cycle contains participating users and
     the item exchanges required to complete the cycle.
-    """    
+    """
 
     public_id = models.UUIDField(
         default=uuid.uuid4,
@@ -335,10 +344,7 @@ class TradeCycle(models.Model):
     )
 
     def __str__(self):
-        return (
-            f"Trade Cycle "
-            f"{self.public_id}"
-        )
+        return f"Trade Cycle " f"{self.public_id}"
 
 
 class TradeCycleParticipant(models.Model):
@@ -370,17 +376,12 @@ class TradeCycleParticipant(models.Model):
                     "cycle",
                     "user",
                 ],
-                name=(
-                    "unique_user_per_cycle"
-                ),
+                name=("unique_user_per_cycle"),
             )
         ]
 
     def __str__(self):
-        return (
-            f"{self.user.username} "
-            f"in {self.cycle.public_id}"
-        )
+        return f"{self.user.username} " f"in {self.cycle.public_id}"
 
 
 class TradeCycleTrade(models.Model):
@@ -424,9 +425,7 @@ class TradeCycleTrade(models.Model):
                     "cycle",
                     "item",
                 ],
-                name=(
-                    "unique_item_per_cycle"
-                ),
+                name=("unique_item_per_cycle"),
             )
         ]
 
