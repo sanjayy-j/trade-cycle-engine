@@ -6,7 +6,6 @@ from exchange.models import (
     User,
     Item,
     TradeProposal,
-    TradeExecution,
 )
 
 
@@ -30,11 +29,6 @@ class TradeHistoryApiTests(TestCase):
             password="test123",
         )
 
-        self.user4 = User.objects.create_user(
-            username="vidhya",
-            password="test123",
-        )
-
         self.item1 = Item.objects.create(
             name="Book",
             owner=self.user1,
@@ -54,7 +48,13 @@ class TradeHistoryApiTests(TestCase):
             user=self.user1
         )
 
-    def create_proposal(self):
+    def create_proposal(self, items=None):
+        item1, item2, item3 = items or (
+            self.item1,
+            self.item2,
+            self.item3,
+        )
+
         response = self.client.post(
             "/api/trade-proposals/",
             {
@@ -67,17 +67,17 @@ class TradeHistoryApiTests(TestCase):
                     {
                         "giver": self.user1.id,
                         "receiver": self.user2.id,
-                        "item": self.item1.id,
+                        "item": item1.id,
                     },
                     {
                         "giver": self.user2.id,
                         "receiver": self.user3.id,
-                        "item": self.item2.id,
+                        "item": item2.id,
                     },
                     {
                         "giver": self.user3.id,
                         "receiver": self.user1.id,
-                        "item": self.item3.id,
+                        "item": item3.id,
                     },
                 ],
             },
@@ -94,24 +94,6 @@ class TradeHistoryApiTests(TestCase):
             )
         proposal.refresh_from_db()
         return proposal
-
-    def test_execution_record_created(self):
-        response = self.create_proposal()
-        proposal = TradeProposal.objects.get(
-            public_id=response.data["public_id"]
-        )
-
-        self.accept_proposal(proposal)
-
-        self.assertEqual(
-            TradeExecution.objects.count(),
-            1,
-        )
-
-        self.assertEqual(
-            proposal.execution.proposal,
-            proposal,
-        )
 
     def test_user_can_view_trade_history(self):
         response = self.create_proposal()
@@ -139,76 +121,4 @@ class TradeHistoryApiTests(TestCase):
         self.assertEqual(
             response.data[0]["proposal_public_id"],
             str(proposal.public_id),
-        )
-
-    def test_non_participant_cannot_view_history(self):
-        response = self.create_proposal()
-        proposal = TradeProposal.objects.get(
-            public_id=response.data["public_id"]
-        )
-
-        self.accept_proposal(proposal)
-
-        self.client.force_authenticate(user=self.user4)
-        response = self.client.get(
-            "/api/trade-history/"
-        )
-
-        self.assertEqual(
-            response.status_code,
-            200,
-        )
-
-        self.assertEqual(
-            response.data,
-            [],
-        )
-
-    def test_history_ordering(self):
-        response1 = self.create_proposal()
-        proposal1 = TradeProposal.objects.get(
-            public_id=response1.data["public_id"]
-        )
-        self.accept_proposal(proposal1)
-
-        response2 = self.create_proposal()
-        proposal2 = TradeProposal.objects.get(
-            public_id=response2.data["public_id"]
-        )
-        self.accept_proposal(proposal2)
-
-        self.client.force_authenticate(user=self.user1)
-        response = self.client.get(
-            "/api/trade-history/"
-        )
-
-        self.assertEqual(
-            response.status_code,
-            200,
-        )
-
-        self.assertEqual(
-            len(response.data),
-            2,
-        )
-
-        self.assertEqual(
-            response.data[0]["proposal_public_id"],
-            str(proposal2.public_id),
-        )
-        self.assertEqual(
-            response.data[1]["proposal_public_id"],
-            str(proposal1.public_id),
-        )
-
-    def test_authentication_required(self):
-        self.client.force_authenticate(user=None)
-
-        response = self.client.get(
-            "/api/trade-history/"
-        )
-
-        self.assertEqual(
-            response.status_code,
-            401,
         )

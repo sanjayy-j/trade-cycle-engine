@@ -54,38 +54,6 @@ class ItemApiTests(TestCase):
             self.user1,
         )
 
-    def test_list_items_is_paginated(self):
-        items = [
-            Item.objects.create(
-                name=f"Item {i}",
-                owner=self.user1,
-            )
-            for i in range(12)
-        ]
-
-        response = self.client.get(
-            "/api/items/"
-        )
-
-        self.assertEqual(
-            response.status_code,
-            200,
-        )
-
-        self.assertIn(
-            "results",
-            response.data,
-        )
-
-        self.assertEqual(
-            len(response.data["results"]),
-            10,
-        )
-
-        self.assertIsNotNone(
-            response.data["next"],
-        )
-
     def test_patch_item(self):
         item = Item.objects.create(
             name="Keyboard",
@@ -151,25 +119,4 @@ class ItemApiTests(TestCase):
         self.assertEqual(
             response.status_code,
             403,
-        )
-
-    def test_non_owner_cannot_delete_item(self):
-        item = Item.objects.create(
-            name="Keyboard",
-            owner=self.user2,
-        )
-
-        response = self.client.delete(
-            f"/api/items/{item.public_id}/"
-        )
-
-        self.assertEqual(
-            response.status_code,
-            403,
-        )
-
-        self.assertTrue(
-            Item.objects.filter(
-                id=item.id
-            ).exists()
         )

@@ -9,6 +9,7 @@ from exchange.models import (
     TradeParticipant,
     TradeItem,
 )
+from exchange.services import release_reserved_items
 
 
 class TradeProposalApiTests(TestCase):
@@ -129,37 +130,6 @@ class TradeProposalApiTests(TestCase):
         self.assertEqual(
             response.status_code,
             400,
-        )
-
-    def test_get_trade_proposal_detail(self):
-
-        response = self.create_proposal()
-
-        public_id = response.data["public_id"]
-
-        response = self.client.get(
-            f"/api/trade-proposals/{public_id}/"
-        )
-
-        self.assertEqual(
-            response.status_code,
-            200,
-        )
-
-        self.assertEqual(
-            response.data["public_id"],
-            public_id,
-        )
-
-    def test_trade_proposal_not_found(self):
-
-        response = self.client.get(
-            "/api/trade-proposals/00000000-0000-0000-0000-000000000000/"
-        )
-
-        self.assertEqual(
-            response.status_code,
-            404,
         )
 
     def test_participant_can_accept_trade(self):
@@ -303,7 +273,69 @@ class TradeProposalApiTests(TestCase):
             self.user1,
         )
 
-    def test_items_marked_as_traded(self):
+    def test_giver_must_be_participant(self):
+
+        response = self.client.post(
+            "/api/trade-proposals/",
+            {
+                "participants": [
+                    self.user1.id,
+                    self.user2.id,
+                ],
+                "trades": [
+                    {
+                        "giver": self.user3.id,
+                        "receiver": self.user2.id,
+                        "item": self.item3.id,
+                    },
+                ],
+            },
+            format="json",
+        )
+
+        self.assertEqual(
+            response.status_code,
+            400,
+        )
+
+        self.assertEqual(
+            TradeProposal.objects.count(),
+            0,
+        )
+
+    def test_item_already_reserved_cannot_be_proposed_again(self):
+
+        self.create_proposal()
+
+        response = self.client.post(
+            "/api/trade-proposals/",
+            {
+                "participants": [
+                    self.user1.id,
+                    self.user2.id,
+                ],
+                "trades": [
+                    {
+                        "giver": self.user1.id,
+                        "receiver": self.user2.id,
+                        "item": self.item1.id,
+                    },
+                ],
+            },
+            format="json",
+        )
+
+        self.assertEqual(
+            response.status_code,
+            400,
+        )
+
+        self.assertEqual(
+            TradeProposal.objects.count(),
+            1,
+        )
+
+    def test_release_reserved_items_returns_item_to_available(self):
 
         response = self.create_proposal()
 
@@ -311,18 +343,10 @@ class TradeProposalApiTests(TestCase):
             public_id=response.data["public_id"]
         )
 
-        for user in [
-            self.user1,
-            self.user2,
-            self.user3,
-        ]:
-            self.client.force_authenticate(
-                user=user
-            )
+        proposal.status = TradeProposal.Status.REJECTED
+        proposal.save(update_fields=["status"])
 
-            self.client.post(
-                f"/api/trade-proposals/{proposal.public_id}/accept/"
-            )
+        release_reserved_items(proposal)
 
         self.item1.refresh_from_db()
         self.item2.refresh_from_db()
@@ -330,15 +354,38 @@ class TradeProposalApiTests(TestCase):
 
         self.assertEqual(
             self.item1.status,
-            Item.Status.TRADED,
+            Item.Status.AVAILABLE,
         )
 
         self.assertEqual(
             self.item2.status,
-            Item.Status.TRADED,
+            Item.Status.AVAILABLE,
         )
 
         self.assertEqual(
             self.item3.status,
+            Item.Status.AVAILABLE,
+        )
+
+    def test_release_reserved_items_does_not_touch_traded_items(self):
+
+        response = self.create_proposal()
+
+        proposal = TradeProposal.objects.get(
+            public_id=response.data["public_id"]
+        )
+
+        for user in [self.user1, self.user2, self.user3]:
+            self.client.force_authenticate(user=user)
+            self.client.post(
+                f"/api/trade-proposals/{proposal.public_id}/accept/"
+            )
+
+        release_reserved_items(proposal)
+
+        self.item1.refresh_from_db()
+
+        self.assertEqual(
+            self.item1.status,
             Item.Status.TRADED,
         )

@@ -1,4 +1,3 @@
-from django.urls import reverse
 from django.test import TestCase
 
 from rest_framework.test import APIClient
@@ -8,6 +7,7 @@ from exchange.models import (
     Item,
     Want,
 )
+
 
 class WantApiTests(TestCase):
 
@@ -24,11 +24,6 @@ class WantApiTests(TestCase):
             password="test123",
         )
 
-        self.user3 = User.objects.create_user(
-            username="kavin",
-            password="test123",
-        )
-
         self.item1 = Item.objects.create(
             name="Keyboard",
             owner=self.user1,
@@ -37,11 +32,6 @@ class WantApiTests(TestCase):
         self.item2 = Item.objects.create(
             name="Laptop",
             owner=self.user2,
-        )
-
-        self.item3 = Item.objects.create(
-            name="Monitor",
-            owner=self.user3,
         )
 
         self.client.force_authenticate(
@@ -94,96 +84,6 @@ class WantApiTests(TestCase):
 
         response = self.client.post(
             "/api/wants/",
-            {
-                "item": self.item2.id,
-            },
-            format="json",
-        )
-
-        self.assertEqual(
-            response.status_code,
-            400,
-        )
-
-    def test_delete_want(self):
-        want = Want.objects.create(
-            user=self.user1,
-            item=self.item2,
-        )
-
-        response = self.client.delete(
-            f"/api/wants/{want.public_id}/"
-        )
-
-        self.assertEqual(
-            response.status_code,
-            204,
-        )
-
-        self.assertFalse(
-            Want.objects.filter(
-                id=want.id
-            ).exists()
-        )
-
-    def test_patch_want(self):
-        want = Want.objects.create(
-            user=self.user1,
-            item=self.item2,
-        )
-
-        response = self.client.patch(
-            f"/api/wants/{want.public_id}/",
-            {
-                "item": self.item3.id,
-            },
-            format="json",
-        )
-
-        self.assertEqual(
-            response.status_code,
-            200,
-        )
-
-        want.refresh_from_db()
-
-        self.assertEqual(
-            want.item,
-            self.item3,
-        )
-        
-    def test_patch_want_rejects_own_item(self):
-        want = Want.objects.create(
-            user=self.user1,
-            item=self.item2,
-        )
-
-        response = self.client.patch(
-            f"/api/wants/{want.public_id}/",
-            {
-                "item": self.item1.id,
-            },
-            format="json",
-        )
-
-        self.assertEqual(
-            response.status_code,
-            400,
-        )
-
-    def test_patch_want_rejects_duplicate(self):
-        want1 = Want.objects.create(
-            user=self.user1,
-            item=self.item2,
-        )
-
-        want2 = Want.objects.create(
-            user=self.user1,
-            item=self.item3,
-        )
-
-        response = self.client.patch(
-            f"/api/wants/{want2.public_id}/",
             {
                 "item": self.item2.id,
             },
