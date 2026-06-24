@@ -24,7 +24,8 @@ def build_trade_graph():
             "item__owner",
         )
         .filter(
-            item__status=Item.Status.AVAILABLE
+            item__status=Item.Status.AVAILABLE,
+            item__is_deleted=False,
         )
     )
 

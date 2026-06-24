@@ -24,11 +24,14 @@ class DirectTradeView(APIView):
         results = []
         seen = set()
 
-        my_items = Item.objects.filter(owner=request.user)
+        my_items = Item.active.filter(owner=request.user)
 
-        my_wants = Want.objects.filter(user=request.user).select_related(
-            "item", "item__owner"
-        )
+        # Excludes wants whose target item has since been soft-deleted by
+        # its owner, so a deleted item can't surface as a match.
+        my_wants = Want.objects.filter(
+            user=request.user,
+            item__is_deleted=False,
+        ).select_related("item", "item__owner")
 
         all_matching_wants = Want.objects.filter(item__in=my_items).select_related(
             "user",

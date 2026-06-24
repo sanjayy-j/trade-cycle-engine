@@ -49,12 +49,32 @@ class User(AbstractUser):
     role = models.CharField(max_length=10, choices=Role.choices, default=Role.USER)
 
 
+class ActiveItemManager(models.Manager):
+    """
+    Default-queryset manager scoped to non-deleted items.
+
+    Used everywhere an item must actually be available for trading
+    (listings, matching, cycle detection, wants). ``Item.objects``
+    intentionally stays the unfiltered manager so forward foreign-key
+    lookups (e.g. a ``TradeItem``'s ``item``) keep resolving soft-deleted
+    items, preserving historical trade records.
+    """
+
+    def get_queryset(self):
+        """Exclude soft-deleted rows from the base queryset."""
+        return super().get_queryset().filter(is_deleted=False)
+
+
 class Item(models.Model):
     """
     Represents a tradable item owned by a user.
 
     Items serve as the primary assets within the trading
     ecosystem and can participate in direct or cyclic trades.
+
+    Deletion is soft (``is_deleted``/``deleted_at``) rather than a row
+    delete: items already referenced by a ``TradeItem``/``TradeExecution``
+    must remain queryable so historical trade records stay intact.
     """
 
     class Status(models.TextChoices):
@@ -85,11 +105,24 @@ class Item(models.Model):
         db_index=True,
     )
 
+    is_deleted = models.BooleanField(
+        default=False,
+        db_index=True,
+    )
+
+    deleted_at = models.DateTimeField(
+        null=True,
+        blank=True,
+    )
+
     created_at = models.DateTimeField(
         auto_now_add=True,
         db_index=True,
     )
     updated_at = models.DateTimeField(auto_now=True)
+
+    objects = models.Manager()
+    active = ActiveItemManager()
 
     def __str__(self):
         return self.name

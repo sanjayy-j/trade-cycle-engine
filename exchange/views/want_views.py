@@ -46,7 +46,7 @@ class MatchListView(APIView):
         """Return each of the user's items with the usernames that want it."""
         results = []
 
-        my_items = Item.objects.filter(owner=request.user).prefetch_related(
+        my_items = Item.active.filter(owner=request.user).prefetch_related(
             "wanted_by__user"
         )
 

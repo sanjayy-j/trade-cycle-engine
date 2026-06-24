@@ -152,7 +152,7 @@ class TradeSerializer(serializers.Serializer):
     )
 
     item = serializers.PrimaryKeyRelatedField(
-        queryset=Item.objects.all(),
+        queryset=Item.active.all(),
     )
 
     def validate(self, attrs):

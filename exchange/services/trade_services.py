@@ -55,9 +55,12 @@ def create_trade_proposal(
             .order_by("id")
         )
 
+        # Re-checked here (not just at the serializer layer) because the
+        # item could have been soft-deleted in the window between
+        # validation and this lock being acquired.
         unavailable = [
             item for item in locked_items
-            if item.status != Item.Status.AVAILABLE
+            if item.status != Item.Status.AVAILABLE or item.is_deleted
         ]
 
         if unavailable:
