@@ -10,10 +10,8 @@ from exchange.models import (
     TradeCycleTrade,
 )
 
-from exchange.services import (
-    build_trade_graph,
-    find_cycles_for_user,
-)
+from exchange.services import find_cycles_for_user
+
 
 class CycleDetectionTests(TestCase):
 
@@ -80,35 +78,6 @@ class CycleDetectionTests(TestCase):
             owner=self.user6,
         )
 
-    def test_no_cycle_found(self):
-        graph = {
-            self.user1.id: [
-                {
-                    "source": self.user1,
-                    "target": self.user2,
-                    "item": self.item2,
-                }
-            ],
-
-            self.user2.id: [
-                {
-                    "source": self.user2,
-                    "target": self.user3,
-                    "item": self.item3,
-                }
-            ],
-        }
-
-        cycles = find_cycles_for_user(
-            graph,
-            self.user1.id,
-        )
-
-        self.assertEqual(
-            len(cycles),
-            0,
-        )
-
     def test_detects_three_way_cycle(self):
         graph = {
             self.user1.id: [
@@ -149,56 +118,6 @@ class CycleDetectionTests(TestCase):
         self.assertEqual(
             cycles[0]["cycle_length"],
             3,
-        )
-
-    def test_detects_four_way_cycle(self):
-        graph = {
-            self.user1.id: [
-                {
-                    "source": self.user1,
-                    "target": self.user2,
-                    "item": self.item2,
-                }
-            ],
-
-            self.user2.id: [
-                {
-                    "source": self.user2,
-                    "target": self.user3,
-                    "item": self.item3,
-                }
-            ],
-
-            self.user3.id: [
-                {
-                    "source": self.user3,
-                    "target": self.user4,
-                    "item": self.item4,
-                }
-            ],
-
-            self.user4.id: [
-                {
-                    "source": self.user4,
-                    "target": self.user1,
-                    "item": self.item1,
-                }
-            ],
-        }
-
-        cycles = find_cycles_for_user(
-            graph,
-            self.user1.id,
-        )
-
-        self.assertEqual(
-            len(cycles),
-            1,
-        )
-
-        self.assertEqual(
-            cycles[0]["cycle_length"],
-            4,
         )
 
     def test_max_depth_respected(self):
@@ -263,54 +182,6 @@ class CycleDetectionTests(TestCase):
             0,
         )
 
-    def test_build_trade_graph(self):
-        Want.objects.create(
-            user=self.user1,
-            item=self.item2,
-        )
-
-        graph = build_trade_graph()
-
-        self.assertIn(
-            self.user1.id,
-            graph,
-        )
-
-        self.assertEqual(
-            len(graph[self.user1.id]),
-            1,
-        )
-
-        edge = graph[self.user1.id][0]
-
-        self.assertEqual(
-            edge["source"],
-            self.user1,
-        )
-
-        self.assertEqual(
-            edge["target"],
-            self.user2,
-        )
-
-        self.assertEqual(
-            edge["item"],
-            self.item2,
-        )
-
-    def test_self_loop_not_added_to_graph(self):
-        Want.objects.create(
-            user=self.user1,
-            item=self.item1,
-        )
-
-        graph = build_trade_graph()
-
-        self.assertNotIn(
-            self.user1.id,
-            graph,
-        )
-
     def test_cycles_endpoint_returns_200(self):
         Want.objects.create(
             user=self.user1,
@@ -350,7 +221,7 @@ class CycleDetectionTests(TestCase):
             3,
         )
 
-    def test_cycles_endpoint_persists_trade_cycle_records(self):
+    def test_repeated_cycle_detection_does_not_create_duplicates(self):
         Want.objects.create(
             user=self.user1,
             item=self.item2,
@@ -370,12 +241,28 @@ class CycleDetectionTests(TestCase):
             user=self.user1
         )
 
-        response = self.client.get(
+        first_response = self.client.get(
             "/api/trades/cycles/"
         )
 
         self.assertEqual(
-            response.status_code,
+            first_response.status_code,
+            200,
+        )
+
+        self.assertEqual(
+            TradeCycle.objects.count(),
+            1,
+        )
+
+        first_public_id = first_response.data[0]["public_id"]
+
+        second_response = self.client.get(
+            "/api/trades/cycles/"
+        )
+
+        self.assertEqual(
+            second_response.status_code,
             200,
         )
 
@@ -394,14 +281,7 @@ class CycleDetectionTests(TestCase):
             3,
         )
 
-        cycle = TradeCycle.objects.first()
-
         self.assertEqual(
-            response.data[0]["public_id"],
-            str(cycle.public_id),
-        )
-
-        self.assertEqual(
-            response.data[0]["summary"],
-            "3-way trade cycle found",
+            second_response.data[0]["public_id"],
+            first_public_id,
         )

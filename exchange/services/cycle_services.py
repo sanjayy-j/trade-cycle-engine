@@ -1,6 +1,9 @@
-from ..models import Item, Want, TradeCycleParticipant, TradeCycleTrade, TradeCycle
-from ..constants import MAX_CYCLE_LENGTH
+"""Trade cycle discovery and persistence: graph building, DFS search, and storage."""
+
 from django.db import transaction
+
+from ..constants import MAX_CYCLE_LENGTH
+from ..models import Item, TradeCycle, TradeCycleParticipant, TradeCycleTrade, Want
 
 
 def build_trade_graph():
@@ -118,6 +121,7 @@ def find_cycles_for_user(
         path_edges,
         visited_users,
     ):
+        """Depth-first walk that records a cycle whenever it returns to start_node."""
         if len(path_edges) >= max_depth:
             return
 
@@ -170,6 +174,45 @@ def find_cycles_for_user(
     return cycles
 
 
+def _active_cycles_by_key():
+    """
+    Maps each active ``TradeCycle``'s trade signature (via
+    ``build_cycle_key``) to the cycle itself.
+
+    Used by ``persist_trade_cycles`` to detect when a freshly detected
+    cycle is identical to one already persisted and active, so it can be
+    reused instead of creating a duplicate row.
+    """
+    cycles_by_id = {
+        cycle.id: cycle
+        for cycle in TradeCycle.objects.filter(active=True)
+    }
+
+    edges_by_cycle_id = {}
+
+    trades = (
+        TradeCycleTrade.objects
+        .filter(cycle__active=True)
+        .select_related("giver", "receiver", "item")
+    )
+
+    for trade in trades:
+        edges_by_cycle_id.setdefault(trade.cycle_id, []).append(
+            {
+                "source": trade.receiver,
+                "target": trade.giver,
+                "item": trade.item,
+            }
+        )
+
+    keys = {}
+
+    for cycle_id, edges in edges_by_cycle_id.items():
+        keys[build_cycle_key(edges)] = cycles_by_id[cycle_id]
+
+    return keys
+
+
 @transaction.atomic
 def persist_trade_cycles(
     cycle_responses,
@@ -178,14 +221,39 @@ def persist_trade_cycles(
     Persists detected trade cycles and their
     associated participants/trades.
 
+    Behavior:
+        Before creating a new ``TradeCycle``, checks whether an active
+        cycle with an identical trade signature (same giver/receiver/item
+        triples) already exists, and reuses it instead of persisting a
+        duplicate. This keeps repeated calls to the cycle-detection
+        endpoint from accumulating duplicate rows for the same underlying
+        relationship.
+
     All writes occur within a single database
     transaction to prevent partially-created
     cycles from being stored.
     """
 
+    existing_keys = _active_cycles_by_key()
+
     created_cycles = []
 
     for cycle_response in cycle_responses:
+
+        signature_edges = [
+            {
+                "source": trade["receiver"],
+                "target": trade["giver"],
+                "item": trade["item"],
+            }
+            for trade in cycle_response["trades"]
+        ]
+
+        cycle_key = build_cycle_key(signature_edges)
+
+        if cycle_key in existing_keys:
+            created_cycles.append(existing_keys[cycle_key])
+            continue
 
         cycle = TradeCycle.objects.create()
 
@@ -219,6 +287,7 @@ def persist_trade_cycles(
             trades
         )
 
+        existing_keys[cycle_key] = cycle
         created_cycles.append(cycle)
 
     return created_cycles
