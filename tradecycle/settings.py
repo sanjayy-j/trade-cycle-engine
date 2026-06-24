@@ -11,6 +11,7 @@ import os
 from pathlib import Path
 
 from django.core.exceptions import ImproperlyConfigured
+from datetime import timedelta
 from dotenv import load_dotenv
 
 load_dotenv()
@@ -117,6 +118,11 @@ DATABASES = {
     }
 }
 
+SIMPLE_JWT = {
+    "ACCESS_TOKEN_LIFETIME": timedelta(days=7),
+    "REFRESH_TOKEN_LIFETIME": timedelta(days=30),
+}
+
 AUTH_PASSWORD_VALIDATORS = [
     {
         'NAME': 'django.contrib.auth.password_validation.UserAttributeSimilarityValidator',
@@ -147,8 +153,7 @@ STATIC_ROOT = BASE_DIR / "staticfiles"
 AUTH_USER_MODEL = "exchange.User"
 
 # Relaxed locally so plain-HTTP development works; strict whenever
-# DEBUG=False, which is how this project decides it's running in
-# production.
+# DEBUG=False, which is how this project decides it's running in production.
 if DEBUG:
     SECURE_SSL_REDIRECT = False
     SESSION_COOKIE_SECURE = False
