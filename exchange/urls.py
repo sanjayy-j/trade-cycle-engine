@@ -8,7 +8,6 @@ from .views import (
     admin_only,
     ItemViewSet,
     WantViewSet,
-    MatchListView,
     DirectTradeView,
     TradeCycleView,
     TradeHistoryView,
@@ -28,12 +27,6 @@ router.register("wants", WantViewSet, basename="want")
 urlpatterns = [
     path("profile/", profile),
     path("admin-only/", admin_only),
-
-    path(
-        "matches/",
-        MatchListView.as_view(),
-        name="match-list",
-    ),
 
     path(
         "trades/direct/",

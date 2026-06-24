@@ -137,7 +137,6 @@ this project's v1.0 ship pass.
 | Items             | `/api/items/{uuid}/`                     | GET, PATCH, DELETE        |
 | Wants             | `/api/wants/`                            | GET, POST                 |
 | Wants             | `/api/wants/{uuid}/`                     | GET, PATCH, DELETE        |
-| Matching          | `/api/matches/`                          | GET                        |
 | Matching          | `/api/trades/direct/`                    | GET                        |
 | Matching          | `/api/trades/cycles/`                    | GET                        |
 | Trade Proposals   | `/api/trade-proposals/`                  | GET, POST                 |

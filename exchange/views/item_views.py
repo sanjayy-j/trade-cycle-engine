@@ -21,6 +21,9 @@ class ItemViewSet(OwnerOrAdminActionsMixin, viewsets.ModelViewSet):
     lookup_field = "public_id"
     lookup_value_regex = UUID_REGEX
     owner_protected_actions = ("update", "partial_update", "destroy")
+    # No full-replace semantics needed - PATCH covers every legitimate edit,
+    # so PUT is dropped to keep one way to update a resource.
+    http_method_names = ["get", "post", "patch", "delete", "head", "options"]
 
     def get_queryset(self):
         """Return non-deleted items, with owners preloaded, newest-created last."""
@@ -44,7 +47,7 @@ class ItemViewSet(OwnerOrAdminActionsMixin, viewsets.ModelViewSet):
 
         if instance.status == Item.Status.RESERVED:
             return Response(
-                {"error": "Reserved items cannot be deleted."},
+                {"detail": "Reserved items cannot be deleted."},
                 status=status.HTTP_400_BAD_REQUEST,
             )
 

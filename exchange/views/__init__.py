@@ -1,6 +1,6 @@
 from .auth_views import profile, admin_only, RegisterView
 from .item_views import ItemViewSet
-from .want_views import WantViewSet, MatchListView
+from .want_views import WantViewSet
 from .trade_views import DirectTradeView, TradeCycleView, TradeHistoryView
 from .proposal_views import (
     TradeProposalListCreateView,
@@ -16,7 +16,6 @@ __all__ = [
     "RegisterView",
     "ItemViewSet",
     "WantViewSet",
-    "MatchListView",
     "DirectTradeView",
     "TradeCycleView",
     "TradeHistoryView",

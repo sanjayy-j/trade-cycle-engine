@@ -1,6 +1,6 @@
 # Trade Cycle Engine — Project Status
 
-Current Version: **1.0.0 release candidate**
+Current Version: **1.0.0**
 
 ---
 
@@ -17,14 +17,18 @@ Current Version: **1.0.0 release candidate**
 - `/health/` and `/version/` ops endpoints
 
 ### Item & Want Management
-- Item CRUD (owner-or-admin enforced on update/delete)
+- Item and Want CRUD via `GET`/`POST`/`PATCH`/`DELETE` only — `PUT` was
+  removed during the v1 freeze pass since neither serializer has a field
+  combination that requires full-replace semantics, and `Want` in
+  particular has a single writable field, making `PUT` and `PATCH`
+  behaviorally identical (owner-or-admin enforced on update/delete)
 - Item soft delete: `DELETE /api/items/{uuid}/` sets `is_deleted`/
   `deleted_at` instead of removing the row, so `TradeItem`/`TradeExecution`
   records that reference the item keep resolving it. Soft-deleted items are
   excluded from listings, direct/cycle matching, and from being wanted or
   proposed (`Item.active` manager + restricted serializer querysets)
 - `RESERVED` items cannot be deleted — `ItemViewSet.destroy` rejects the
-  request with `400 {"error": "Reserved items cannot be deleted."}` rather
+  request with `400 {"detail": "Reserved items cannot be deleted."}` rather
   than letting a pending proposal execute against a deleted item.
   `AVAILABLE` and `TRADED` items can still be deleted (soft-deleted) freely
 - Want CRUD (self-want and duplicate-want prevention)
@@ -32,7 +36,11 @@ Current Version: **1.0.0 release candidate**
 - Item lifecycle states: `AVAILABLE` → `RESERVED` → `TRADED`
 
 ### Trade Matching Engine
-- Direct trade matching (2-party mutual wants)
+- Direct trade matching (2-party mutual wants) — `GET /api/trades/direct/`
+  is the sole match-discovery endpoint; the one-sided `GET /api/matches/`
+  ("who wants my stuff") was removed during the v1 freeze pass since it
+  reported interest that wasn't necessarily a real, executable trade and
+  fed nothing downstream
 - Graph builder (`build_trade_graph`) over all `AVAILABLE`-item wants
 - DFS-based cycle detection, variable length (`MAX_CYCLE_LENGTH`)
 - User-specific cycle recommendations
@@ -60,6 +68,9 @@ Current Version: **1.0.0 release candidate**
 - Trade execution records + per-user trade history
 
 ### Architecture
+- Consistent error response shape: custom business-logic errors return
+  `{"detail": "..."}`, matching DRF's own built-in error/validation shape
+  (no separate `{"error": ...}` vocabulary)
 - `exchange/views/`, `exchange/serializers/` split into per-domain modules
 - `exchange/services/` holds all business logic and transactions; views stay
   thin and translate domain exceptions into HTTP status codes

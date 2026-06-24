@@ -348,7 +348,6 @@ All operations occur inside a single transaction.
 
 ## Matching APIs
 
-- GET /api/matches/
 - GET /api/trades/direct/
 - GET /api/trades/cycles/
 
@@ -360,6 +359,7 @@ All operations occur inside a single transaction.
 - POST /api/trade-proposals/
 - GET /api/trade-proposals/{public_id}/
 - POST /api/trade-proposals/{public_id}/accept/
+- POST /api/trade-proposals/{public_id}/reject/
 
 ---
 

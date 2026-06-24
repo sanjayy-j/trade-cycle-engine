@@ -133,7 +133,7 @@ Two managers exist on `Item`:
   correctly inside historical trade/proposal/execution data.
 - `Item.active` — filters `is_deleted=False`. Used everywhere an item must
   actually be tradable: `ItemViewSet.get_queryset` (listings/retrieve/
-  update/destroy), `DirectTradeView`/`MatchListView` (matching), and as the
+  update/destroy), `DirectTradeView` (matching), and as the
   `queryset=` on the `item` fields of `WantSerializer` and `TradeSerializer`
   (so a deleted item can't be wanted or proposed — DRF rejects the id as a
   normal 400, since it isn't in that field's queryset). `build_trade_graph`

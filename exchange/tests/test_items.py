@@ -121,7 +121,7 @@ class ItemApiTests(TestCase):
 
         self.assertEqual(
             response.data,
-            {"error": "Reserved items cannot be deleted."},
+            {"detail": "Reserved items cannot be deleted."},
         )
 
         item.refresh_from_db()

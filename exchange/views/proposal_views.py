@@ -67,7 +67,7 @@ class TradeProposalListCreateView(APIView):
 
         if request.user.id not in participant_ids:
             return Response(
-                {"error": "You must be part of the trade"},
+                {"detail": "You must be part of the trade"},
                 status=status.HTTP_403_FORBIDDEN,
             )
 
@@ -89,7 +89,7 @@ class TradeProposalListCreateView(APIView):
             )
         except ItemNotAvailableError as exc:
             return Response(
-                {"error": str(exc)},
+                {"detail": str(exc)},
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
@@ -119,7 +119,7 @@ def _get_accessible_proposal(public_id, user):
         ).get(public_id=public_id)
     except TradeProposal.DoesNotExist:
         return None, Response(
-            {"error": "Trade proposal not found"},
+            {"detail": "Trade proposal not found"},
             status=status.HTTP_404_NOT_FOUND,
         )
 
@@ -130,7 +130,7 @@ def _get_accessible_proposal(public_id, user):
 
     if not is_participant:
         return None, Response(
-            {"error": "You are not part of this trade"},
+            {"detail": "You are not part of this trade"},
             status=status.HTTP_403_FORBIDDEN,
         )
 
@@ -190,7 +190,7 @@ class TradeProposalAcceptView(APIView):
             )
         except ProposalNotPendingError as exc:
             return Response(
-                {"error": str(exc)},
+                {"detail": str(exc)},
                 status=status.HTTP_409_CONFLICT,
             )
 
@@ -231,7 +231,7 @@ class TradeProposalRejectView(APIView):
             )
         except ProposalNotPendingError as exc:
             return Response(
-                {"error": str(exc)},
+                {"detail": str(exc)},
                 status=status.HTTP_409_CONFLICT,
             )
 
