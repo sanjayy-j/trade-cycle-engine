@@ -52,3 +52,8 @@ jobs:
 
       - name: Run tests
         run: python manage.py test
+
+      - name: Verify static files build (WhiteNoise/Render)
+        env:
+          DEBUG: "False"
+        run: python manage.py collectstatic --noinput

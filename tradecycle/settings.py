@@ -162,6 +162,8 @@ STATICFILES_STORAGE = (
 
 AUTH_USER_MODEL = "exchange.User"
 
+DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
+
 # Relaxed locally so plain-HTTP development works; strict whenever
 # DEBUG=False, which is how this project decides it's running in production.
 if DEBUG:
@@ -178,6 +180,12 @@ else:
     SECURE_HSTS_SECONDS = int(os.getenv("SECURE_HSTS_SECONDS", "31536000"))
     SECURE_HSTS_INCLUDE_SUBDOMAINS = True
     SECURE_HSTS_PRELOAD = True
+
+    # Render (and most PaaS platforms) terminate TLS at the proxy and
+    # forward plain HTTP to the app, adding this header to say the
+    # original request was HTTPS. Without it, Django thinks every
+    # request is insecure and SECURE_SSL_REDIRECT loops forever.
+    SECURE_PROXY_SSL_HEADER = ("HTTP_X_FORWARDED_PROTO", "https")
 
 LOGGING = {
     "version": 1,

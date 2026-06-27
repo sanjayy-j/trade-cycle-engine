@@ -4,6 +4,7 @@ from django.contrib import admin
 from django.urls import include, path
 from drf_spectacular.views import (
     SpectacularAPIView,
+    SpectacularRedocView,
     SpectacularSwaggerView,
 )
 from rest_framework_simplejwt.views import (
@@ -31,6 +32,12 @@ urlpatterns = [
         SpectacularSwaggerView.as_view(
             url_name="schema"
         ),
+    ),
+
+    path(
+        "api/redoc/",
+        SpectacularRedocView.as_view(url_name="schema"),
+        name="redoc",
     ),
 
     path(
