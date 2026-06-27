@@ -116,6 +116,38 @@ docker compose up --build
 This starts a PostgreSQL container and the Django app (migrating
 automatically on startup), exposed on `http://localhost:8000`.
 
+### Deploying to Render
+
+Database configuration is handled by `dj-database-url`, so the same
+`DATABASES` setting works locally and on Render without code changes:
+
+- Locally, it builds a Postgres URL from the `DB_NAME`, `DB_USER`,
+  `DB_PASSWORD`, `DB_HOST`, and `DB_PORT` variables in `.env`.
+- On Render, it picks up the `DATABASE_URL` environment variable that
+  Render injects automatically when you attach a managed Postgres
+  instance — no `DB_*` variables needed there.
+
+To deploy:
+
+1. Create a Render Postgres instance and a Render web service from this
+   repository (or push the existing `Dockerfile`-based image).
+2. Render sets `DATABASE_URL` automatically once the database is attached
+   to the web service; you don't need to set the `DB_*` variables in the
+   Render environment.
+3. Set the remaining environment variables on the Render service:
+   `SECRET_KEY`, `DEBUG=False`, and `ALLOWED_HOSTS` (your Render
+   hostname, e.g. `your-app.onrender.com`).
+4. Set the start command to:
+   ```bash
+   gunicorn tradecycle.wsgi:application --bind 0.0.0.0:$PORT
+   ```
+5. Run `python manage.py migrate` as a Render release/deploy command (or
+   one-off job) after the first deploy.
+
+With `DEBUG=False`, connections to `DATABASE_URL` are pooled
+(`CONN_MAX_AGE=600`) and require SSL automatically — no extra
+configuration needed.
+
 ### Continuous Integration
 
 GitHub Actions (`.github/workflows/ci.yml`) runs `pip install -r
