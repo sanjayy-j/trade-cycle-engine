@@ -2,6 +2,7 @@
 
 from django.contrib import admin
 from django.urls import include, path
+from django.views.generic.base import RedirectView
 from drf_spectacular.views import (
     SpectacularAPIView,
     SpectacularRedocView,
@@ -16,6 +17,14 @@ from exchange.views import HealthView, VersionView, RegisterView
 
 
 urlpatterns = [
+    # This is an API-only backend with no homepage view; send anyone
+    # visiting the bare domain straight to the interactive API docs
+    # instead of a 404.
+    path(
+        "",
+        RedirectView.as_view(url="/api/docs/", permanent=False),
+    ),
+
     path("admin/", admin.site.urls),
 
     path("health/", HealthView.as_view(), name="health"),
