@@ -47,7 +47,10 @@ trade simultaneously through a single coordinated cycle.
 - Django REST Framework
 - PostgreSQL
 - JWT (`djangorestframework-simplejwt`)
-- drf-spectacular (OpenAPI schema + Swagger UI)
+- drf-spectacular (OpenAPI schema + Swagger UI / ReDoc)
+- Gunicorn (production WSGI server)
+- WhiteNoise (static file serving)
+- dj-database-url (local + Render database configuration)
 - Docker / docker-compose (optional)
 - Postman (manual API testing)
 
@@ -77,6 +80,24 @@ tradecycle/
 
 See [architecture.md](architecture.md) for how the layers fit together and
 how the trade proposal lifecycle and cycle detection actually work.
+
+---
+
+## Environment Variables
+
+All variables are read in [tradecycle/settings.py](tradecycle/settings.py)
+and documented with examples in [.env.example](.env.example).
+
+| Variable                | Required        | Default                  | Notes |
+| ------------------------ | ---------------- | ------------------------- | ----- |
+| `SECRET_KEY`             | Yes when `DEBUG=False` | none                | App fails to start without it in production |
+| `DEBUG`                  | No               | `True`                    | `False` enables strict cookies/HSTS/SSL |
+| `ALLOWED_HOSTS`          | Yes when `DEBUG=False` | `localhost,127.0.0.1` | Comma-separated |
+| `DATABASE_URL`           | No               | built from `DB_*` below   | Set automatically by Render; takes priority over `DB_*` |
+| `DB_NAME` / `DB_USER` / `DB_PASSWORD` / `DB_HOST` / `DB_PORT` | No (unless no `DATABASE_URL`) | see `.env.example` | Used to build the local Postgres URL |
+| `API_VERSION`            | No               | `1.0.0`                   | Reported by `GET /version/` |
+| `SECURE_SSL_REDIRECT`    | No               | `True` (only applies when `DEBUG=False`) | Force HTTPS redirect |
+| `SECURE_HSTS_SECONDS`    | No               | `31536000` (only applies when `DEBUG=False`) | HSTS max-age |
 
 ---
 
@@ -177,10 +198,10 @@ this project's v1.0 ship pass.
 | Trade Proposals   | `/api/trade-proposals/{uuid}/reject/`    | POST                       |
 | History           | `/api/trade-history/`                    | GET                        |
 | Ops               | `/health/`, `/version/`                  | GET                        |
-| Docs              | `/api/docs/`, `/api/schema/`             | GET                        |
+| Docs              | `/api/docs/`, `/api/redoc/`, `/api/schema/` | GET                     |
 
-Full interactive documentation is available at `/api/docs/` once the server
-is running.
+Full interactive documentation is available at `/api/docs/` (Swagger UI) or
+`/api/redoc/` (ReDoc) once the server is running.
 
 ---
 

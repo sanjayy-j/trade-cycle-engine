@@ -41,7 +41,7 @@ class, or response shape for the existing accept/create/detail flows.
 - `exchange/exceptions/` — `ItemNotAvailableError`,
   `ProposalNotPendingError`. Services raise these; views catch them and
   map to `400`/`409`.
-- `exchange/permissions.py` — `IsAdminRole`, `IsOwnerOrAdmin`, and
+- `exchange/permissions.py` — `IsOwnerOrAdmin` and
   `OwnerOrAdminActionsMixin`. The mixin resolves `get_permissions()` from a
   per-viewset `owner_protected_actions` tuple, since `ItemViewSet` and
   `WantViewSet` both need "owner or admin for these actions, authenticated

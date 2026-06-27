@@ -2,6 +2,12 @@
 
 Current Version: **1.0.0**
 
+**Deployment readiness: Render-ready.** Database config (`dj-database-url`),
+static file serving (WhiteNoise), the production WSGI server (Gunicorn), and
+the Render-specific `SECURE_PROXY_SSL_HEADER`/`$PORT` settings are all in
+place — see "Production Readiness" below and the Render section in
+[README.md](README.md).
+
 ---
 
 ## Completed
@@ -13,7 +19,7 @@ Current Version: **1.0.0**
 - UUID public identifiers on all resources
 - Pagination
 - PostgreSQL
-- Swagger / OpenAPI documentation (`/api/docs/`)
+- Swagger / OpenAPI documentation (`/api/docs/`, `/api/redoc/`)
 - `/health/` and `/version/` ops endpoints
 
 ### Item & Want Management
@@ -79,20 +85,42 @@ Current Version: **1.0.0**
   settings package, no environment-switching indirection)
 - Query optimization (`select_related` / `prefetch_related` throughout)
 - Bulk database operations, database indexing on hot lookup fields
+- A final maintainability pass removed dead code that didn't justify its
+  existence: the unused `TradeProposal.Status.ACCEPTED` choice (a proposal
+  always moves PENDING → EXECUTED directly, never through ACCEPTED), and
+  the `admin_only`/`IsAdminRole` sample endpoint (no caller, no test, no
+  doc). `TradeItemSerializer`/`TradeCycleTradeSerializer`'s duplicated
+  giver/receiver/item fields were merged into a shared base serializer
 
 ### Production Readiness
 - Per-action API rate limiting (DRF throttles)
 - Structured logging (console handler, `DEBUG`-aware verbosity)
 - `ALLOWED_HOSTS` / secure cookie / HSTS settings, gated on `DEBUG`
+- `SECURE_PROXY_SSL_HEADER` set when `DEBUG=False`, so `SECURE_SSL_REDIRECT`
+  works correctly behind Render's TLS-terminating proxy instead of
+  redirect-looping
 - Fails fast (`ImproperlyConfigured`) if `SECRET_KEY` or `ALLOWED_HOSTS`
   aren't set when `DEBUG=False`
-- Dockerfile + docker-compose (app + PostgreSQL)
-- GitHub Actions CI (migrate + full test suite on every push/PR), verified
-  green from a from-scratch virtualenv + Postgres container. A prior CI
-  failure was traced to `requirements.txt` having been saved as UTF-16
-  (every existing local venv had already installed the correct packages
-  before that, so the breakage was invisible locally and only surfaced on
-  a fresh CI runner's `pip install`); the file is now plain UTF-8
+- `dj-database-url` backed `DATABASES`: builds a local Postgres URL from
+  `DB_*` env vars, or uses Render's `DATABASE_URL` automatically when
+  present, with `CONN_MAX_AGE=600` and SSL required outside `DEBUG`
+- WhiteNoise (`CompressedManifestStaticFilesStorage`) for static file
+  serving; Gunicorn as the production WSGI server, binding to Render's
+  `$PORT` (falls back to `8000` locally)
+- Dockerfile + docker-compose (app + PostgreSQL). The Docker build's
+  `collectstatic` step uses build-scoped placeholder `SECRET_KEY`/
+  `DATABASE_URL` values (overridden by Render's real env vars at
+  container start) since Django imports `DATABASES`/`SECRET_KEY` at
+  settings-module load time, before any management command runs
+- `staticfiles/` is build output (`manage.py collectstatic`), not checked
+  into version control
+- GitHub Actions CI (migrate + full test suite + a `collectstatic`
+  dry-run against `DEBUG=False` on every push/PR), verified green from a
+  from-scratch virtualenv + Postgres container. `requirements.txt` must
+  stay plain UTF-8 — it has regressed to UTF-16 once before (a prior CI
+  failure on a fresh runner's `pip install`, invisible locally since
+  existing venvs already had the packages installed) and was re-fixed
+  during the pre-deployment hardening pass
 
 ### Testing
 - 37 automated tests, consolidated to high-signal coverage:
