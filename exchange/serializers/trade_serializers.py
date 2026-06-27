@@ -33,10 +33,14 @@ class TradeParticipantSerializer(
         ]
 
 
-class TradeItemSerializer(
-    serializers.ModelSerializer
-):
-    """Read-only view of a single giver/receiver/item leg of a trade proposal."""
+class _GiverReceiverItemSerializer(serializers.ModelSerializer):
+    """
+    Shared read-only giver/receiver/item leg fields.
+
+    ``TradeItem`` (transactional) and ``TradeCycleTrade`` (recommendation
+    data) describe the same giver/receiver/item shape for two different
+    models - see their docstrings in models.py for why both models exist.
+    """
 
     giver = serializers.CharField(
         source="giver.username",
@@ -54,13 +58,18 @@ class TradeItemSerializer(
     )
 
     class Meta:
-        model = TradeItem
-
         fields = [
             "giver",
             "receiver",
             "item",
         ]
+
+
+class TradeItemSerializer(_GiverReceiverItemSerializer):
+    """Read-only view of a single giver/receiver/item leg of a trade proposal."""
+
+    class Meta(_GiverReceiverItemSerializer.Meta):
+        model = TradeItem
 
 
 class TradeProposalSerializer(
@@ -231,34 +240,11 @@ class TradeCycleParticipantSerializer(
         ]
 
 
-class TradeCycleTradeSerializer(
-    serializers.ModelSerializer
-):
+class TradeCycleTradeSerializer(_GiverReceiverItemSerializer):
     """Read-only view of a single recommended exchange within a trade cycle."""
 
-    giver = serializers.CharField(
-        source="giver.username",
-        read_only=True,
-    )
-
-    receiver = serializers.CharField(
-        source="receiver.username",
-        read_only=True,
-    )
-
-    item = serializers.CharField(
-        source="item.name",
-        read_only=True,
-    )
-
-    class Meta:
+    class Meta(_GiverReceiverItemSerializer.Meta):
         model = TradeCycleTrade
-
-        fields = [
-            "giver",
-            "receiver",
-            "item",
-        ]
 
 
 class TradeCycleSerializer(

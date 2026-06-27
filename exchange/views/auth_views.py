@@ -5,7 +5,6 @@ from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework.decorators import api_view, permission_classes
 from rest_framework.views import APIView
 
-from ..permissions import IsAdminRole
 from ..serializers import RegisterSerializer, RegisterResponseSerializer
 from ..throttles import RegistrationThrottle
 
@@ -20,13 +19,6 @@ def profile(request):
             "role": request.user.role,
         }
     )
-
-
-@api_view(["GET"])
-@permission_classes([IsAdminRole])
-def admin_only(request):
-    """Sample endpoint reachable only by users with the ADMIN role."""
-    return Response({"message": "Welcome Admin"})
 
 
 class RegisterView(APIView):

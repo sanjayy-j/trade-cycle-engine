@@ -1,3 +1,5 @@
+from collections import defaultdict
+
 from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework.permissions import IsAuthenticated
@@ -39,10 +41,8 @@ class DirectTradeView(APIView):
             "item__owner",
         )
 
-        wants_by_user = {}
+        wants_by_user = defaultdict(list)
         for want in all_matching_wants:
-            if want.user.id not in wants_by_user:
-                wants_by_user[want.user.id] = []
             wants_by_user[want.user.id].append(want)
 
         for want in my_wants:

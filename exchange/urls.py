@@ -5,7 +5,6 @@ from rest_framework.routers import DefaultRouter
 
 from .views import (
     profile,
-    admin_only,
     ItemViewSet,
     WantViewSet,
     DirectTradeView,
@@ -26,7 +25,6 @@ router.register("wants", WantViewSet, basename="want")
 
 urlpatterns = [
     path("profile/", profile),
-    path("admin-only/", admin_only),
 
     path(
         "trades/direct/",

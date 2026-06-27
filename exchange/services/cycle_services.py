@@ -131,24 +131,13 @@ def find_cycles_for_user(
             next_user_id = edge["target"].id
 
             # Cycle found
-            if (
-                next_user_id == start_node
-                and len(path_edges) >= 2
-            ):
+            if next_user_id == start_node and len(path_edges) >= 2:
                 cycle_edges = path_edges + [edge]
-
-                cycle_key = build_cycle_key(
-                    cycle_edges
-                )
+                cycle_key = build_cycle_key(cycle_edges)
 
                 if cycle_key not in seen_cycles:
                     seen_cycles.add(cycle_key)
-
-                    cycles.append(
-                        build_cycle_response(
-                            cycle_edges
-                        )
-                    )
+                    cycles.append(build_cycle_response(cycle_edges))
 
                 continue
 
@@ -160,9 +149,7 @@ def find_cycles_for_user(
                 start_node=start_node,
                 current_node=next_user_id,
                 path_edges=path_edges + [edge],
-                visited_users=visited_users | {
-                    next_user_id
-                },
+                visited_users=visited_users | {next_user_id},
             )
 
     dfs(
@@ -263,14 +250,10 @@ def persist_trade_cycles(
                 cycle=cycle,
                 user=user,
             )
-            for user in cycle_response[
-                "participants"
-            ]
+            for user in cycle_response["participants"]
         ]
 
-        TradeCycleParticipant.objects.bulk_create(
-            participants
-        )
+        TradeCycleParticipant.objects.bulk_create(participants)
 
         trades = [
             TradeCycleTrade(
@@ -279,14 +262,10 @@ def persist_trade_cycles(
                 receiver=trade["receiver"],
                 item=trade["item"],
             )
-            for trade in cycle_response[
-                "trades"
-            ]
+            for trade in cycle_response["trades"]
         ]
 
-        TradeCycleTrade.objects.bulk_create(
-            trades
-        )
+        TradeCycleTrade.objects.bulk_create(trades)
 
         existing_keys[cycle_key] = cycle
         created_cycles.append(cycle)

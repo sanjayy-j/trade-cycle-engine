@@ -48,13 +48,7 @@ class TradeHistoryApiTests(TestCase):
             user=self.user1
         )
 
-    def create_proposal(self, items=None):
-        item1, item2, item3 = items or (
-            self.item1,
-            self.item2,
-            self.item3,
-        )
-
+    def create_proposal(self):
         response = self.client.post(
             "/api/trade-proposals/",
             {
@@ -67,17 +61,17 @@ class TradeHistoryApiTests(TestCase):
                     {
                         "giver": self.user1.id,
                         "receiver": self.user2.id,
-                        "item": item1.id,
+                        "item": self.item1.id,
                     },
                     {
                         "giver": self.user2.id,
                         "receiver": self.user3.id,
-                        "item": item2.id,
+                        "item": self.item2.id,
                     },
                     {
                         "giver": self.user3.id,
                         "receiver": self.user1.id,
-                        "item": item3.id,
+                        "item": self.item3.id,
                     },
                 ],
             },

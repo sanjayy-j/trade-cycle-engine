@@ -8,8 +8,9 @@ from django.contrib.auth.models import AbstractUser
 from django.utils import timezone
 
 
-def _default_expiry():
-    return timezone.now() + timedelta(hours=24)
+# Migrations reference default_cycle_expiry/default_proposal_expiry by
+# dotted path, so both names must stay even though they share one duration.
+_DEFAULT_EXPIRY_DURATION = timedelta(hours=24)
 
 
 def default_cycle_expiry():
@@ -20,7 +21,7 @@ def default_cycle_expiry():
     explicitly completed or deactivated.
     """
 
-    return _default_expiry()
+    return timezone.now() + _DEFAULT_EXPIRY_DURATION
 
 
 def default_proposal_expiry():
@@ -31,7 +32,7 @@ def default_proposal_expiry():
     accepted, rejected, or executed before then.
     """
 
-    return _default_expiry()
+    return timezone.now() + _DEFAULT_EXPIRY_DURATION
 
 
 class User(AbstractUser):
@@ -176,8 +177,10 @@ class TradeProposal(models.Model):
     """
 
     class Status(models.TextChoices):
+        # No ACCEPTED state: a proposal moves straight from PENDING to
+        # EXECUTED once every TradeParticipant.accepted is True - see
+        # accept_trade_proposal() in services/trade_services.py.
         PENDING = "PENDING", "Pending"
-        ACCEPTED = "ACCEPTED", "Accepted"
         REJECTED = "REJECTED", "Rejected"
         EXECUTED = "EXECUTED", "Executed"
         EXPIRED = "EXPIRED", "Expired"
@@ -217,7 +220,7 @@ class TradeProposal(models.Model):
         )
 
     def __str__(self):
-        return f"Trade Proposal " f"{self.public_id}"
+        return f"Trade Proposal {self.public_id}"
 
 
 class TradeExecution(models.Model):
@@ -245,7 +248,7 @@ class TradeExecution(models.Model):
     )
 
     def __str__(self):
-        return f"Trade Execution " f"{self.public_id}"
+        return f"Trade Execution {self.public_id}"
 
 
 class TradeParticipant(models.Model):
@@ -292,7 +295,7 @@ class TradeParticipant(models.Model):
         ]
 
     def __str__(self):
-        return f"{self.user.username} " f"in {self.proposal.public_id}"
+        return f"{self.user.username} in {self.proposal.public_id}"
 
 
 class TradeItem(models.Model):
@@ -377,7 +380,7 @@ class TradeCycle(models.Model):
     )
 
     def __str__(self):
-        return f"Trade Cycle " f"{self.public_id}"
+        return f"Trade Cycle {self.public_id}"
 
 
 class TradeCycleParticipant(models.Model):
@@ -414,7 +417,7 @@ class TradeCycleParticipant(models.Model):
         ]
 
     def __str__(self):
-        return f"{self.user.username} " f"in {self.cycle.public_id}"
+        return f"{self.user.username} in {self.cycle.public_id}"
 
 
 class TradeCycleTrade(models.Model):

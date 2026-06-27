@@ -3,17 +3,6 @@
 from rest_framework.permissions import BasePermission, IsAuthenticated
 
 
-class IsAdminRole(BasePermission):
-    """Grants access only to authenticated users with the ADMIN role."""
-
-    def has_permission(self, request, view):
-        """Return True if the requesting user is authenticated and an admin."""
-        return (
-            request.user.is_authenticated
-            and request.user.role == request.user.Role.ADMIN
-        )
-
-
 class IsOwnerOrAdmin(BasePermission):
     """Grants object access to the object's owner/user or to admins."""
 
