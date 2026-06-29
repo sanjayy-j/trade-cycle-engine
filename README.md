@@ -225,6 +225,63 @@ Full interactive documentation is available at `/api/docs/` (Swagger UI) or
 
 ---
 
+## Demo Data
+
+Rather than walking through the workflow above by hand, seed a complete,
+realistic dataset in one command:
+
+```bash
+python manage.py seed_demo
+```
+
+This creates:
+
+- **8 demo users** (`alice`, `bob`, `charlie`, `david`, `emma`, `frank`,
+  `grace`, `henry`), all sharing the password **`Demo@123`**
+- **18 items** across categories like Electronics, Sports, Games, and Home
+- **21 wants**, structured so the dataset is guaranteed to contain a
+  **direct trade** (`alice` ↔ `bob`) and a **3-way trade cycle**
+  (`charlie` → `david` → `emma` → `charlie`) — both immediately visible via
+  `GET /api/trades/direct/` and `GET /api/trades/cycles/`
+- **1 pending trade proposal** (the `alice`/`bob` direct trade), created
+  through the real `create_trade_proposal` service so the
+  accept/reject/execute workflow can be demonstrated immediately via
+  `POST /api/trade-proposals/{public_id}/accept/`
+
+The command is idempotent — running it again never creates duplicates,
+never touches non-demo users, and never deletes anything. It also prints
+a verification step confirming the direct trade and cycle are actually
+detectable, not just present in the database:
+
+```
+Creating demo users...
+[OK] 8 users ready (8 new)
+
+Creating demo items...
+[OK] 18 items ready (18 new)
+
+Creating wants...
+[OK] 21 wants ready (21 new)
+
+Creating demo trade proposal...
+[OK] 1 pending trade proposal ready (alice <-> bob)
+
+Verifying generated data...
+[OK] Direct trade available
+[OK] 3-way trade cycle available
+
+Demo data successfully generated.
+Log in as any of alice, bob, charlie, david, emma, frank, grace, henry with password 'Demo@123'.
+```
+
+To explore immediately after seeding: log in as `charlie` at
+`POST /api/auth/login/` and call `GET /api/trades/cycles/` to see the
+3-way cycle, or log in as `alice`/`bob` and call
+`GET /api/trade-proposals/` to see the pending proposal awaiting
+acceptance.
+
+---
+
 ## Testing
 
 ```bash

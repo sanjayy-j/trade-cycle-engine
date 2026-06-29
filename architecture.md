@@ -46,6 +46,11 @@ class, or response shape for the existing accept/create/detail flows.
   per-viewset `owner_protected_actions` tuple, since `ItemViewSet` and
   `WantViewSet` both need "owner or admin for these actions, authenticated
   for the rest" and previously duplicated that logic.
+- `exchange/management/commands/seed_demo.py` — idempotent demo-data
+  generator (`python manage.py seed_demo`), built entirely on
+  `get_or_create` and the same `create_trade_proposal` service the API
+  uses, so the seeded proposal goes through the real reservation/locking
+  path rather than inserting rows directly.
 - `tradecycle/settings.py` — a single settings module. `DEBUG` (from the
   environment, default `True`) is the only switch: it picks relaxed local
   cookie/HSTS defaults vs. strict production ones, and gates the fail-fast
